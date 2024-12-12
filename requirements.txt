@@ -4,3 +4,4 @@ zarr
 numcodecs
 h5py
 xraylib
+tqdm
