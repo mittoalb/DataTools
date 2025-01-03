@@ -1,0 +1,20 @@
+Metadata-Version: 2.1
+Name: datatools
+Version: 0.0.1
+Summary: A package for data conversion and analysis tools
+Home-page: https://github.com/mittoalb/Allen
+Author: Alberto Mittone
+Author-email: amittone@anl.gov
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.6
+License-File: LICENCE
+Requires-Dist: fabio
+Requires-Dist: zarr
+Requires-Dist: click
+Requires-Dist: numcodecs
+Requires-Dist: h5py
+Requires-Dist: xraylib
+Requires-Dist: tqdm
+Requires-Dist: zarr

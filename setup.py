@@ -8,7 +8,7 @@ setup(
     author_email="amittone@anl.gov",
     url="https://github.com/mittoalb/Allen",
     packages=find_packages(),  # Automatically find subpackages
-    install_requires=["fabio","zarr","click","numcodecs","h5py","xraylib","tqdm"],
+    install_requires=["fabio","zarr","click","numcodecs","h5py","xraylib","tqdm", "zarr"],
     entry_points={
         'console_scripts': [
             'tiff2zarr=DataTools.DataFormats.tiff2zarr:main',
