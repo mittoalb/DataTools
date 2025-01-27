@@ -5,3 +5,4 @@ numcodecs
 h5py
 xraylib
 tqdm
+tifffile
