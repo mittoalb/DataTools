@@ -38,7 +38,6 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
     datasets = []
 
     #shift index
-    j = 0
     for level, data in enumerate(pyramid_levels):
         data = data.astype(original_dtype)
 
@@ -61,7 +60,6 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
                 {"type": "translation", "translation": [2**(level-1) - 0.5, 2**(level-1) - 0.5, 2**(level-1) - 0.5]}
             ]
         })
-        j += 1
 
     root_group.attrs["multiscales"] = [{
         "version": "0.4",
