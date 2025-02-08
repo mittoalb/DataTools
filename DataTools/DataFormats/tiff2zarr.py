@@ -3,27 +3,22 @@ import shutil
 import numpy as np
 import zarr
 import click
-import json
 from numcodecs import Blosc
-from .utils import calculate_global_min_max, load_tiff_chunked, downsample, minmaxHisto
-from ..log import info, setup_custom_logger
+from .utils import load_tiff_chunked, downsample, minmaxHisto
+from .log import info, setup_custom_logger
+
+def calculate_levels(data):
+
+   get_divisions = lambda n: (n & -n).bit_length() - 1
+   dim = []
+   sh = data.shape
+   for i in range(0,len(sh)):
+	   dim.append(get_divisions(sh[i]))
+
+   return min(dim)
+
 
 def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', original_dtype=np.uint8):
-    """
-    Save a 3D volume to a Zarr store, creating a multiscale pyramid representation.
-
-    Parameters:
-    - volume (numpy array): The 3D volume data to be saved.
-    - output_path (str): The path to the output Zarr store.
-    - chunks (tuple of ints): The chunk size for the Zarr array.
-    - compression (str): The compression algorithm to use (e.g., 'blosclz', 'lz4', etc.).
-    - pixel_size (float): The size of the pixels in micrometers.
-    - mode (str, optional): The mode to open the Zarr store ('w' for write, 'a' for append). Default is 'w'.
-    - original_dtype (numpy dtype, optional): The original data type of the images. Default is np.uint8.
-
-    Returns:
-    - None
-    """
     store = zarr.DirectoryStore(output_path)
     compressor = Blosc(cname=compression, clevel=5, shuffle=2)
 
@@ -34,48 +29,58 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
     else:
         root_group = zarr.open(store=store, mode='a')
 
-    pyramid_levels = downsample(volume)
+    levels = calculate_levels(volume)
+
+    if levels > 6:
+        levels = 6
+
+    pyramid_levels, _ = downsample(volume, levels)
     datasets = []
 
+    #shift index
+    j = 0
     for level, data in enumerate(pyramid_levels):
         data = data.astype(original_dtype)
-        
+
         dataset_name = f"{level}"
         if dataset_name in root_group:
             z = root_group[dataset_name]
             z.append(data, axis=0)
         else:
-            z = root_group.create_dataset(name=dataset_name, shape=data.shape, chunks=chunks, dtype=data.dtype, compressor=compressor)
+            z = root_group.create_dataset(
+                name=dataset_name, shape=data.shape, chunks=chunks, dtype=data.dtype, compressor=compressor
+            )
             z[:] = data
+
         scale_factor = 2 ** level
+
         datasets.append({
             "path": dataset_name,
-            "coordinateTransformations": [{"type": "scale", "scale": [pixel_size * scale_factor, pixel_size * scale_factor, pixel_size * scale_factor]}]
+            "coordinateTransformations": [
+                {"type": "scale", "scale": [scale_factor, scale_factor, scale_factor]},
+                {"type": "translation", "translation": [2**(level-1) - 0.5, 2**(level-1) - 0.5, 2**(level-1) - 0.5]}
+            ]
         })
+        j += 1
 
-    if mode == 'w':
-        multiscales = [{
-            "version": "0.4",
-            "name": "example",
-            "axes": [
-                {"name": "z", "type": "space", "unit": "micrometer"},
-                {"name": "y", "type": "space", "unit": "micrometer"},
-                {"name": "x", "type": "space", "unit": "micrometer"}
-            ],
-            "datasets": datasets,
-            "type": "gaussian",
-            "metadata": {
-                "method": "skimage.transform.resize",
-                "version": "0.16.1",
-                "args": "[true]",
-                "kwargs": {"anti_aliasing": True, "preserve_range": True}
-            }
-        }]
+    root_group.attrs["multiscales"] = [{
+        "version": "0.4",
+        "name": "example",
+        "axes": [
+            {"name": "z", "type": "space", "unit": "micrometer"},
+            {"name": "y", "type": "space", "unit": "micrometer"},
+            {"name": "x", "type": "space", "unit": "micrometer"}
+        ],
+        "datasets": datasets,
+        "type": "gaussian",
+        "metadata": {
+            "method": "skimage.transform.downscale_local_mean",
+            "version": "0.16.1",
+            "args": "[true]",
+            "kwargs": {"anti_aliasing": True, "preserve_range": True}
+        }
+    }]
 
-        root_group.attrs.update({"multiscales": multiscales})
-        with open(os.path.join(output_path, 'multiscales.json'), 'w') as f:
-            json.dump({"multiscales": multiscales}, f, indent=2)
-        info(f"Metadata saved to {output_path}")
 
 @click.command()
 @click.argument('input_dir', type=click.Path(exists=True))
@@ -123,4 +128,3 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
 
 if __name__ == "__main__":
     main()
-
