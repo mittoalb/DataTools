@@ -3,6 +3,10 @@ README.md
 pyproject.toml
 setup.py
 DataTools/__init__.py
+<<<<<<< HEAD
+=======
+DataTools/log.py
+>>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383
 DataTools/DataFormats/__init__.py
 DataTools/DataFormats/log.py
 DataTools/DataFormats/tiff2zarr.py
@@ -12,6 +16,11 @@ DataTools/Facilities/__init__.py
 DataTools/Facilities/edf2aps.py
 DataTools/Facilities/esrf2aps.py
 DataTools/Facilities/log.py
+<<<<<<< HEAD
+=======
+DataTools/Globus/__init__.py
+DataTools/Globus/io.py
+>>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383
 DataTools/Physics/__init__.py
 DataTools/Physics/abscalc.py
 DataTools/Tools/__init__.py

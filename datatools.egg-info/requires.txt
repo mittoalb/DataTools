@@ -5,3 +5,7 @@ numcodecs
 h5py
 xraylib
 tqdm
+<<<<<<< HEAD
+=======
+zarr
+>>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383

@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 Metadata-Version: 2.2
+=======
+Metadata-Version: 2.1
+>>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383
 Name: datatools
 Version: 0.0.1
 Summary: A package for data conversion and analysis tools
@@ -17,6 +21,7 @@ Requires-Dist: numcodecs
 Requires-Dist: h5py
 Requires-Dist: xraylib
 Requires-Dist: tqdm
+<<<<<<< HEAD
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -24,3 +29,6 @@ Dynamic: home-page
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
+=======
+Requires-Dist: zarr
+>>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383
