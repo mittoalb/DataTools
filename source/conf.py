@@ -40,9 +40,11 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
-    'sphinxcontrib.bibtex',
     'sphinx.ext.viewcode']
 
+#     'sphinxcontrib.bibtex',
+
+"""
 bibtex_bibfiles = [
     'source/pm/bibtex/ref.bib',
     'source/pm/bibtex/cite.bib',
@@ -51,7 +53,7 @@ bibtex_bibfiles = [
     'source/hsi/AM/bibtex/AM_ref.bib',
     'source/hsi/manual/bibtex/scintilators.bib'
     ]
-
+"""
 # Napoleon settings
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
