@@ -8,6 +8,42 @@ from numcodecs import Blosc
 from skimage.transform import downscale_local_mean
 
 
+def compute_auto_crop(input_dir, dtype=np.uint8, threshold=10, pad=0):
+    files = sorted(f for f in os.listdir(input_dir) if f.lower().endswith('.bmp'))
+    if not files:
+        raise ValueError("No BMP files found")
+
+    max_proj = None
+    ref_shape = None
+
+    for f in files:
+        img = Image.open(os.path.join(input_dir, f)).convert("L")
+        img_np = np.asarray(img, dtype=dtype)
+
+        if ref_shape is None:
+            ref_shape = img_np.shape
+            max_proj = img_np.copy()
+        else:
+            if img_np.shape != ref_shape:
+                continue
+            max_proj = np.maximum(max_proj, img_np)
+
+    mask = max_proj > threshold
+    nonzero = np.argwhere(mask)
+    if nonzero.size == 0:
+        raise RuntimeError("Autocrop failed: no pixels > threshold")
+
+    min_y, min_x = nonzero.min(axis=0)
+    max_y, max_x = nonzero.max(axis=0) + 1
+
+    min_x = max(min_x - pad, 0)
+    min_y = max(min_y - pad, 0)
+    max_x = min(max_x + pad, ref_shape[1])
+    max_y = min(max_y + pad, ref_shape[0])
+
+    return (min_x, max_x, min_y, max_y)
+
+
 def load_bmp_stack(input_dir, dtype, crop_box=None):
     files = sorted(f for f in os.listdir(input_dir) if f.lower().endswith('.bmp'))
     if not files:
@@ -134,11 +170,15 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
 @click.option('--compression', type=click.Choice(['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']),
               default='blosclz', help='Compression algorithm.')
 @click.option('--pixel_size', type=float, default=1.0, help='Pixel size in micrometers.')
-@click.option('--crop', type=str, default=None,
-              help='2D crop in format: startx:endx:starty:endy')
+@click.option('--crop', type=str, default=None, help='2D crop in format: startx:endx:starty:endy')
+@click.option('--autocrop', is_flag=True, help='Automatically crop to non-zero region using thresholded max projection.')
+@click.option('--autocrop-threshold', type=int, default=10, help='Pixel intensity threshold for autocrop.')
+@click.option('--pad', type=int, default=0, help='Padding to apply around the autocrop region.')
 @click.option('--downsample-mode', type=click.Choice(['2d', '3d']), default='2d',
               help='Use 2d (Y/X only) or full 3d (Z/Y/X) downsampling.')
-def main(input_dir, output_path, dtype, chunks, compression, pixel_size, crop, downsample_mode):
+def main(input_dir, output_path, dtype, chunks, compression, pixel_size,
+         crop, autocrop, autocrop_threshold, pad, downsample_mode):
+
     dtype_map = {
         'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
         'uint8': np.uint8, 'uint16': np.uint16,
@@ -146,7 +186,12 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, crop, d
     }
 
     crop_box = None
-    if crop:
+    if autocrop:
+        crop_box = compute_auto_crop(input_dir, dtype_map[dtype],
+                                     threshold=autocrop_threshold,
+                                     pad=pad)
+        print(f"Autocrop box: {crop_box}")
+    elif crop:
         try:
             parts = list(map(int, crop.split(':')))
             assert len(parts) == 4

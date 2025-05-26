@@ -8,6 +8,42 @@ from numcodecs import Blosc
 from skimage.transform import downscale_local_mean
 
 
+def compute_auto_crop(input_dir, dtype=np.uint8, threshold=10, pad=0):
+    files = sorted(f for f in os.listdir(input_dir) if f.lower().endswith('.bmp'))
+    if not files:
+        raise ValueError("No BMP files found")
+
+    max_proj = None
+    ref_shape = None
+
+    for f in files:
+        img = Image.open(os.path.join(input_dir, f)).convert("L")
+        img_np = np.asarray(img, dtype=dtype)
+
+        if ref_shape is None:
+            ref_shape = img_np.shape
+            max_proj = img_np.copy()
+        else:
+            if img_np.shape != ref_shape:
+                continue
+            max_proj = np.maximum(max_proj, img_np)
+
+    mask = max_proj > threshold
+    nonzero = np.argwhere(mask)
+    if nonzero.size == 0:
+        raise RuntimeError("Autocrop failed: no pixels > threshold")
+
+    min_y, min_x = nonzero.min(axis=0)
+    max_y, max_x = nonzero.max(axis=0) + 1
+
+    min_x = max(min_x - pad, 0)
+    min_y = max(min_y - pad, 0)
+    max_x = min(max_x + pad, ref_shape[1])
+    max_y = min(max_y + pad, ref_shape[0])
+
+    return (min_x, max_x, min_y, max_y)
+
+
 def load_bmp_stack(input_dir, dtype, crop_box=None):
     files = sorted(f for f in os.listdir(input_dir) if f.lower().endswith('.bmp'))
     if not files:
@@ -15,34 +51,42 @@ def load_bmp_stack(input_dir, dtype, crop_box=None):
 
     images = []
     target_shape = None
+    skipped = 0
+
     for f in files:
         img_path = os.path.join(input_dir, f)
-        img = Image.open(img_path).convert("L")  # grayscale
+        img = Image.open(img_path).convert("L")
 
         if crop_box:
             startx, endx, starty, endy = crop_box
-            img = img.crop((startx, starty, endx, endy))  # crop before checking shape
+            img = img.crop((startx, starty, endx, endy))
 
         img_np = np.asarray(img, dtype=dtype)
 
         if target_shape is None:
             target_shape = img_np.shape
         elif img_np.shape != target_shape:
-            print(f"Skipping {f} (cropped shape {img_np.shape} ≠ {target_shape})")
+            print(f"Skipping {f} (cropped shape {img_np.shape} != {target_shape})")
+            skipped += 1
             continue
 
         images.append(img_np)
 
     if not images:
-        raise RuntimeError("No consistent BMP images found after cropping. Check input.")
+        raise RuntimeError("No consistent BMP images found after cropping.")
 
-    stack = np.stack(images, axis=0)  # Shape: (Z, Y, X)
+    stack = np.stack(images, axis=0)
     print(f"Loaded volume shape: {stack.shape}")
+    if skipped > 0:
+        print(f"{skipped} image(s) were skipped due to inconsistent shape.")
     return stack
 
 
-def calculate_levels(data):
-    min_dim = min(data.shape)
+def calculate_levels(data, mode='2d'):
+    if mode == '2d':
+        min_dim = min(data.shape[1], data.shape[2])
+    else:
+        min_dim = min(data.shape)
     levels = 0
     while min_dim >= 2:
         min_dim //= 2
@@ -56,12 +100,12 @@ def downsample(volume, levels, mode='2d'):
         current = pyramid[-1]
         if mode == '2d':
             if current.shape[1] < 2 or current.shape[2] < 2:
-                print(f"⚠️ Stopping at level {level}: Y/X too small")
+                print(f"Stopping at level {level}: Y/X too small")
                 break
             factors = (1, 2, 2)
-        else:  # 3d
+        else:
             if min(current.shape) < 2:
-                print(f"⚠️ Stopping at level {level}: Z/Y/X too small")
+                print(f"Stopping at level {level}: Z/Y/X too small")
                 break
             factors = (2, 2, 2)
 
@@ -81,8 +125,8 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
 
     root = zarr.group(store=store)
 
-    levels = min(calculate_levels(volume), 6)
-    print(f"Calculated {levels} pyramid levels")
+    levels = min(calculate_levels(volume, mode=downsample_mode), 6)
+    print(f"Calculated {levels} pyramid levels for mode: {downsample_mode}")
 
     pyramid = downsample(volume, levels, mode=downsample_mode)
     datasets = []
@@ -126,11 +170,15 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
 @click.option('--compression', type=click.Choice(['blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd']),
               default='blosclz', help='Compression algorithm.')
 @click.option('--pixel_size', type=float, default=1.0, help='Pixel size in micrometers.')
-@click.option('--crop', type=str, default=None,
-              help='2D crop in format: startx:endx:starty:endy')
+@click.option('--crop', type=str, default=None, help='2D crop in format: startx:endx:starty:endy')
+@click.option('--autocrop', is_flag=True, help='Automatically crop to non-zero region using thresholded max projection.')
+@click.option('--autocrop-threshold', type=int, default=10, help='Pixel intensity threshold for autocrop.')
+@click.option('--pad', type=int, default=0, help='Padding to apply around the autocrop region.')
 @click.option('--downsample-mode', type=click.Choice(['2d', '3d']), default='2d',
               help='Use 2d (Y/X only) or full 3d (Z/Y/X) downsampling.')
-def main(input_dir, output_path, dtype, chunks, compression, pixel_size, crop, downsample_mode):
+def main(input_dir, output_path, dtype, chunks, compression, pixel_size,
+         crop, autocrop, autocrop_threshold, pad, downsample_mode):
+
     dtype_map = {
         'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
         'uint8': np.uint8, 'uint16': np.uint16,
@@ -138,7 +186,12 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, crop, d
     }
 
     crop_box = None
-    if crop:
+    if autocrop:
+        crop_box = compute_auto_crop(input_dir, dtype_map[dtype],
+                                     threshold=autocrop_threshold,
+                                     pad=pad)
+        print(f"Autocrop box: {crop_box}")
+    elif crop:
         try:
             parts = list(map(int, crop.split(':')))
             assert len(parts) == 4
