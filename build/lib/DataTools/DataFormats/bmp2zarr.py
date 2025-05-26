@@ -15,42 +15,34 @@ def load_bmp_stack(input_dir, dtype, crop_box=None):
 
     images = []
     target_shape = None
-    skipped = 0
-
     for f in files:
         img_path = os.path.join(input_dir, f)
-        img = Image.open(img_path).convert("L")
+        img = Image.open(img_path).convert("L")  # grayscale
 
         if crop_box:
             startx, endx, starty, endy = crop_box
-            img = img.crop((startx, starty, endx, endy))
+            img = img.crop((startx, starty, endx, endy))  # crop before checking shape
 
         img_np = np.asarray(img, dtype=dtype)
 
         if target_shape is None:
             target_shape = img_np.shape
         elif img_np.shape != target_shape:
-            print(f"Skipping {f} (cropped shape {img_np.shape} != {target_shape})")
-            skipped += 1
+            print(f"Skipping {f} (cropped shape {img_np.shape} ≠ {target_shape})")
             continue
 
         images.append(img_np)
 
     if not images:
-        raise RuntimeError("No consistent BMP images found after cropping.")
+        raise RuntimeError("No consistent BMP images found after cropping. Check input.")
 
-    stack = np.stack(images, axis=0)
+    stack = np.stack(images, axis=0)  # Shape: (Z, Y, X)
     print(f"Loaded volume shape: {stack.shape}")
-    if skipped > 0:
-        print(f"{skipped} image(s) were skipped due to inconsistent shape.")
     return stack
 
 
-def calculate_levels(data, mode='2d'):
-    if mode == '2d':
-        min_dim = min(data.shape[1], data.shape[2])
-    else:
-        min_dim = min(data.shape)
+def calculate_levels(data):
+    min_dim = min(data.shape)
     levels = 0
     while min_dim >= 2:
         min_dim //= 2
@@ -64,12 +56,12 @@ def downsample(volume, levels, mode='2d'):
         current = pyramid[-1]
         if mode == '2d':
             if current.shape[1] < 2 or current.shape[2] < 2:
-                print(f"Stopping at level {level}: Y/X too small")
+                print(f"⚠️ Stopping at level {level}: Y/X too small")
                 break
             factors = (1, 2, 2)
-        else:
+        else:  # 3d
             if min(current.shape) < 2:
-                print(f"Stopping at level {level}: Z/Y/X too small")
+                print(f"⚠️ Stopping at level {level}: Z/Y/X too small")
                 break
             factors = (2, 2, 2)
 
@@ -89,8 +81,8 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
 
     root = zarr.group(store=store)
 
-    levels = min(calculate_levels(volume, mode=downsample_mode), 6)
-    print(f"Calculated {levels} pyramid levels for mode: {downsample_mode}")
+    levels = min(calculate_levels(volume), 6)
+    print(f"Calculated {levels} pyramid levels")
 
     pyramid = downsample(volume, levels, mode=downsample_mode)
     datasets = []
