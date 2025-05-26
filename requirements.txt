@@ -5,5 +5,17 @@ numcodecs
 h5py
 xraylib
 tqdm
+<<<<<<< Updated upstream
 tifffile
 scikit-image
+=======
+z5py
+
+
+google-api-core
+google-auth
+google-cloud-core
+google-cloud-storage
+google-crc32c
+google-resumable-media 
+>>>>>>> Stashed changes

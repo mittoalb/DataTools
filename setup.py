@@ -6,7 +6,7 @@ setup(
     description="A package for data conversion and analysis tools",
     author="Alberto Mittone",
     author_email="amittone@anl.gov",
-    url="https://github.com/mittoalb/Allen",
+    url="https://github.com/mittoalb/DataTools",
     packages=find_packages(),  # Automatically find subpackages
     install_requires=["fabio","zarr","click","numcodecs","h5py","xraylib","tqdm", "zarr"],
     entry_points={

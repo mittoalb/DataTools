@@ -1,12 +1,16 @@
+<<<<<<< Updated upstream
 <<<<<<< HEAD
 Metadata-Version: 2.2
 =======
 Metadata-Version: 2.1
 >>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383
+=======
+Metadata-Version: 2.2
+>>>>>>> Stashed changes
 Name: datatools
 Version: 0.0.1
 Summary: A package for data conversion and analysis tools
-Home-page: https://github.com/mittoalb/Allen
+Home-page: https://github.com/mittoalb/DataTools
 Author: Alberto Mittone
 Author-email: amittone@anl.gov
 Classifier: Programming Language :: Python :: 3
@@ -31,4 +35,14 @@ Dynamic: requires-python
 Dynamic: summary
 =======
 Requires-Dist: zarr
+<<<<<<< Updated upstream
 >>>>>>> 6e661a715d838059904f4c51ee65fbf28b4a7383
+=======
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+>>>>>>> Stashed changes

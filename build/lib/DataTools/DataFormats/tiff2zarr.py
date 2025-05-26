@@ -13,7 +13,8 @@ def calculate_levels(data):
    dim = []
    sh = data.shape
    for i in range(0,len(sh)):
-       dim.append(get_divisions(sh[i]))
+	   dim.append(get_divisions(sh[i]))
+
    return min(dim)
 
 
