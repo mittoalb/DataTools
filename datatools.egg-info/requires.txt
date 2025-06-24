@@ -1,8 +1,7 @@
 fabio
-click
 zarr
+click
 numcodecs
 h5py
 xraylib
 tqdm
-tifffile

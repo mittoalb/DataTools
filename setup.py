@@ -13,6 +13,7 @@ setup(
         'console_scripts': [
             'tiff2zarr=DataTools.DataFormats.tiff2zarr:main',
             'zarr2tiff=DataTools.DataFormats.zarr2tiff:main',
+            'tiff2omezarr=DataTools.DataFormats.tiff2omezarr:main',
             'esrf2aps=DataTools.Facilities.esrf2aps:main',
             'edf2aps=DataTools.Facilities.edf2aps:main',
             'abscalc=DataTools.Physics.abscalc:main',

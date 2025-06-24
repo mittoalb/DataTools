@@ -1,0 +1,9 @@
+[console_scripts]
+abscalc = DataTools.Physics.abscalc:main
+create_vol = DataTools.Tools.create_vol:main
+edf2aps = DataTools.Facilities.edf2aps:main
+esrf2aps = DataTools.Facilities.esrf2aps:main
+extract_meta = DataTools.Tools.extract_meta:main
+tiff2omezarr = DataTools.DataFormats.tiff2omezarr:main
+tiff2zarr = DataTools.DataFormats.tiff2zarr:main
+zarr2tiff = DataTools.DataFormats.zarr2tiff:main
