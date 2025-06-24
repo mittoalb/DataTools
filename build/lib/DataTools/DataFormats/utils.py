@@ -149,67 +149,34 @@ def load_tiff_chunked(input_dir, dtype, chunk_size, start_index=0, global_min=No
         
     #info(f"Loaded TIFF chunk with shape: {zarr_chunk.shape}, dtype: {zarr_chunk.dtype}")
     return zarr_chunk, end_index
+ 
 
-def downsample_old(data, scale_factor=2, max_levels=6):
+def downsample(data, max_levels=5):
     """
-    Create a multi-level downsampled version of the input data.
+    Downsamples a 3D volume while ensuring correct voxel alignment.
 
     Parameters:
-    - data (numpy array): The input image data to be downsampled.
-    - scale_factor (int, optional): Factor by which to downsample the data at each level. Default is 2.
-    - max_levels (int, optional): Maximum number of downsampled levels to generate. Default is 6.
+    - data (numpy array): The input 3D volume.
+    - max_levels (int, optional): Maximum number of downsampled levels. Default is 6.
 
     Returns:
-    - levels (list of numpy arrays): A list containing the original data and each downsampled level.
-
-    Logs:
-    - Information about the shape and data type of each downsampled level.
+    - levels (list of numpy arrays): Downsampled versions of the input data.
+    - offsets (list of lists): Computed voxel offsets for each mip level.
     """
-    current_level = data
-    levels = [current_level]
-    for _ in range(max_levels):
-        new_shape = tuple(max(1, dim // scale_factor) for dim in current_level.shape)
-        if min(new_shape) <= 1:
-            break
-        current_level = resize(current_level, new_shape, order=0, preserve_range=True, anti_aliasing=True)
-        levels.append(current_level)
-        info(f"Downsampled to shape: {current_level.shape}, dtype: {current_level.dtype}")
-    return levels
-    
-    
-    
-    
+    levels = [data]
+    offsets = [[0, 0, 0]]  # MIP-0 has zero translation
 
+    for level in range(1, max_levels + 1):
+        factor = 2  # We downsample by a factor of 2 at each step
 
-def downsample(data, scale_factor=2, max_levels=6):
-    """
-    Create a multi-level downsampled version of the input data using local mean pooling.
+        # Downsample from the previous level, NOT from the original every time
+        downsampled = downscale_local_mean(levels[-1], (factor, factor, factor))
 
-    Parameters:
-    - data (numpy array): The input image data to be downsampled.
-    - scale_factor (int, optional): Factor by which to downsample the data at each level. Default is 2.
-    - max_levels (int, optional): Maximum number of downsampled levels to generate. Default is 6.
+        # No BS offset calculations, translation should always be zero
+        offset = [0, 0, 0]  
 
-    Returns:
-    - levels (list of numpy arrays): A list containing the original data and each downsampled level.
-    """
-    current_level = data
-    levels = [current_level]
-    
-    for _ in range(max_levels):
-        if min(current_level.shape) <= scale_factor:
-            break  # Stop if any dimension becomes too small
+        levels.append(downsampled)
+        offsets.append(offset)
 
-        # Ensure the shape is evenly divisible by scale_factor
-        new_shape = tuple((s // scale_factor) * scale_factor for s in current_level.shape)
-        current_level = current_level[:new_shape[0], :new_shape[1], :new_shape[2]]  # Crop to divisible size
-
-        # Downsample using local mean pooling (preserves voxel centroids)
-        current_level = downscale_local_mean(current_level, (scale_factor, scale_factor, scale_factor))
-
-        levels.append(current_level)
-        print(f"Downsampled to shape: {current_level.shape}, dtype: {current_level.dtype}")
-
-    return levels
-    
+    return levels, offsets
 

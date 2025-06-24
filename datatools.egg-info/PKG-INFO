@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: datatools
 Version: 0.0.1
 Summary: A package for data conversion and analysis tools
@@ -21,6 +21,7 @@ Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary

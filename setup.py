@@ -12,6 +12,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tiff2zarr=DataTools.DataFormats.tiff2zarr:main',
+            'tiff2zarrOPT=DataTools.DataFormats.tiff2zarr_opt:main',            
             'zarr2tiff=DataTools.DataFormats.zarr2tiff:main',
             'tiff2omezarr=DataTools.DataFormats.tiff2omezarr:main',
             'esrf2aps=DataTools.Facilities.esrf2aps:main',

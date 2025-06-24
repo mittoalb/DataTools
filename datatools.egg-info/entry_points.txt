@@ -6,4 +6,5 @@ esrf2aps = DataTools.Facilities.esrf2aps:main
 extract_meta = DataTools.Tools.extract_meta:main
 tiff2omezarr = DataTools.DataFormats.tiff2omezarr:main
 tiff2zarr = DataTools.DataFormats.tiff2zarr:main
+tiff2zarrOPT = DataTools.DataFormats.tiff2zarr_opt:main
 zarr2tiff = DataTools.DataFormats.zarr2tiff:main

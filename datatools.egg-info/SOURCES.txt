@@ -7,6 +7,7 @@ DataTools/DataFormats/__init__.py
 DataTools/DataFormats/log.py
 DataTools/DataFormats/tiff2omezarr.py
 DataTools/DataFormats/tiff2zarr.py
+DataTools/DataFormats/tiff2zarr_opt.py
 DataTools/DataFormats/utils.py
 DataTools/DataFormats/zarr2tiff.py
 DataTools/Facilities/__init__.py
