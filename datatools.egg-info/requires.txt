@@ -1,8 +1,7 @@
 fabio
-zarr
+zarr>=3.0.0
 click
 numcodecs
 h5py
 xraylib
 tqdm
-zarr

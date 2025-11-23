@@ -2,27 +2,34 @@ Metadata-Version: 2.4
 Name: datatools
 Version: 0.0.1
 Summary: A package for data conversion and analysis tools
-Home-page: https://github.com/mittoalb/DataTools
-Author: Alberto Mittone
-Author-email: amittone@anl.gov
+Author-email: Alberto Mittone <amittone@anl.gov>
+License: MIT
+Project-URL: Homepage, https://github.com/mittoalb/DataTools
+Project-URL: Repository, https://github.com/mittoalb/DataTools
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
+Description-Content-Type: text/markdown
 License-File: LICENCE
 Requires-Dist: fabio
-Requires-Dist: zarr
+Requires-Dist: zarr>=3.0.0
 Requires-Dist: click
 Requires-Dist: numcodecs
 Requires-Dist: h5py
 Requires-Dist: xraylib
 Requires-Dist: tqdm
-Requires-Dist: zarr
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+
+# DataTools
+
+**DataTools** is a Python package for scientific data processing, designed to convert imaging files such as EDF and TIFF into efficient formats like HDF5 and Zarr. 
+
+## Installation
+
+To install the package from the source, navigate to the project root directory and run:
+
+```bash
+pip install .
+
+

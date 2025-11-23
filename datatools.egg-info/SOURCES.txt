@@ -1,7 +1,6 @@
 LICENCE
 README.md
 pyproject.toml
-setup.py
 DataTools/__init__.py
 DataTools/log.py
 DataTools/DataFormats/__init__.py
@@ -17,6 +16,7 @@ DataTools/Facilities/log.py
 DataTools/Globus/__init__.py
 DataTools/Globus/io.py
 DataTools/Globus/n5toslice.py
+DataTools/Google/Gdown.py
 DataTools/Physics/__init__.py
 DataTools/Physics/abscalc.py
 DataTools/Tools/__init__.py
