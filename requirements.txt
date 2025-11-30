@@ -1,6 +1,6 @@
 fabio
 click
-zarr
+zarr>=3.0.0
 numcodecs
 h5py
 xraylib

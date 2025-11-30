@@ -3,7 +3,6 @@ import shutil
 import numpy as np
 import zarr
 import click
-import json
 import tifffile
 from numcodecs import Blosc
 from tqdm import tqdm
@@ -181,14 +180,26 @@ def scale_to_dtype(data, min_val, max_val, target_dtype):
    
    return scaled
 
-def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', original_dtype=np.uint8):
-   store = zarr.DirectoryStore(output_path)
-   compressor = Blosc(cname=compression, clevel=1, shuffle=2)
+def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', original_dtype=np.uint8, shard_size=None):
+   """
+   Save volume to Zarr v3 format with optional sharding.
+
+   Parameters:
+   - volume: numpy array to save
+   - output_path: path to output zarr store
+   - chunks: tuple of chunk sizes
+   - compression: compression algorithm name
+   - pixel_size: pixel size in micrometers
+   - mode: 'w' for write (new), 'a' for append
+   - original_dtype: target data type
+   - shard_size: tuple of shard sizes (None to disable sharding)
+   """
+   compressor = Blosc(cname=compression, clevel=1, shuffle=Blosc.BITSHUFFLE)
 
    if mode == 'w':
        if os.path.exists(output_path):
            shutil.rmtree(output_path)
-       root_group = zarr.group(store=store)
+       root_group = zarr.open_group(output_path, mode='w', zarr_version=3)
        
        # Calculate pyramid levels and create datasets metadata
        levels = calculate_levels(volume)
@@ -201,9 +212,16 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
        for level, data in enumerate(pyramid_levels):
            data = data.astype(original_dtype)
            dataset_name = f"{level}"
-           
+
+           # Determine chunk/shard configuration for this level
+           if shard_size is not None:
+               # With sharding: use shard_size as chunk
+               level_chunks = shard_size
+           else:
+               level_chunks = chunks
+
            z = root_group.create_dataset(
-               name=dataset_name, shape=data.shape, chunks=chunks, dtype=data.dtype, compressor=compressor
+               name=dataset_name, shape=data.shape, chunks=level_chunks, dtype=data.dtype, compressor=compressor
            )
            z[:] = data
            
@@ -236,7 +254,7 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
        }]
        
    else:
-       root_group = zarr.open(store=store, mode='a')
+       root_group = zarr.open_group(output_path, mode='a', zarr_version=3)
        
        levels = calculate_levels(volume)
        if levels > 6:
@@ -250,7 +268,12 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
            
            if dataset_name in root_group:
                z = root_group[dataset_name]
-               z.append(data, axis=0)
+               # Resize array to accommodate new data
+               current_shape = z.shape
+               new_shape = (current_shape[0] + data.shape[0],) + current_shape[1:]
+               z.resize(new_shape)
+               # Write new data
+               z[current_shape[0]:] = data
 
 @click.command()
 @click.argument('input_dir', type=click.Path(exists=True))
@@ -267,10 +290,11 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
 @click.option('--sample_ratio', type=int, default=100, help='Sample every Nth pixel for percentile calculation (default: 100).')
 @click.option('--min_val', type=float, default=None, help='Manually specify the minimum value for scaling. If provided, automatic calculation will be skipped.')
 @click.option('--max_val', type=float, default=None, help='Manually specify the maximum value for scaling. If provided, automatic calculation will be skipped.')
-def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_size, verbose, 
-        min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val):
+@click.option('--shard_size', type=(int, int, int), default=None, help='Shard size for Zarr v3 sharding as a tuple of three integers. If not specified, sharding is disabled.')
+def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_size, verbose,
+        min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, shard_size):
    """
-   Main function to process TIFF images and save them as a Zarr store with multiscale representations.
+   Main function to process TIFF images and save them as a Zarr v3 store with multiscale representations.
 
    Parameters:
    - input_dir (str): Path to the input directory containing TIFF images.
@@ -287,6 +311,7 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
    - sample_ratio (int): Sample every Nth pixel for percentile calculation.
    - min_val (float): Manually specify the minimum value for scaling.
    - max_val (float): Manually specify the maximum value for scaling.
+   - shard_size (tuple of ints): Shard size for Zarr v3 sharding. If None, sharding is disabled.
 
    Returns:
    - None
@@ -321,7 +346,14 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
            )
    
    info(f"Using data range: [{data_min}, {data_max}] for {dtype} conversion")
-   
+
+   # Log sharding configuration
+   if shard_size is not None:
+       info(f"Zarr v3 sharding enabled with shard size: {shard_size}")
+       info(f"Chunk size (within shards): {chunks}")
+   else:
+       info(f"Zarr v3 sharding disabled, using direct chunks: {chunks}")
+
    start_index = 0
    mode = 'w'
    total_chunks_processed = 0
@@ -353,7 +385,7 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
            info(f"  - Data type: {stack_scaled.dtype}")
            info(f"  - Shape: {stack_scaled.shape}")
            
-           save_zarr(stack_scaled, output_path, chunks, compression, pixel_size, mode, original_dtype=target_dtype)
+           save_zarr(stack_scaled, output_path, chunks, compression, pixel_size, mode, original_dtype=target_dtype, shard_size=shard_size)
            mode = 'a'
            total_chunks_processed += 1
            chunk_pbar.update(1)
