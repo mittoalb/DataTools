@@ -194,12 +194,15 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
    - original_dtype: target data type
    - shard_size: tuple of shard sizes (None to disable sharding)
    """
-   compressor = Blosc(cname=compression, clevel=1, shuffle=Blosc.BITSHUFFLE)
+   # Only create compressor for write mode
+   # In append mode, zarr will use the existing compressor settings from the dataset
+   if mode == 'w':
+       compressor = Blosc(cname=compression, clevel=1, shuffle=2)
 
    if mode == 'w':
        if os.path.exists(output_path):
            shutil.rmtree(output_path)
-       root_group = zarr.open_group(output_path, mode='w', zarr_version=3)
+       root_group = zarr.open_group(output_path, mode='w')
        
        # Calculate pyramid levels and create datasets metadata
        levels = calculate_levels(volume)
@@ -213,15 +216,11 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
            data = data.astype(original_dtype)
            dataset_name = f"{level}"
 
-           # Determine chunk/shard configuration for this level
-           if shard_size is not None:
-               # With sharding: use shard_size as chunk
-               level_chunks = shard_size
-           else:
-               level_chunks = chunks
-
+           # Note: In zarr v3, sharding is configured via codecs, not chunks parameter
+           # For now, we always use the chunks parameter as-is
+           # The shard_size parameter is reserved for future zarr v3 sharding support
            z = root_group.create_dataset(
-               name=dataset_name, shape=data.shape, chunks=level_chunks, dtype=data.dtype, compressor=compressor
+               name=dataset_name, shape=data.shape, chunks=chunks, dtype=data.dtype, compressor=compressor
            )
            z[:] = data
            
@@ -254,7 +253,7 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
        }]
        
    else:
-       root_group = zarr.open_group(output_path, mode='a', zarr_version=3)
+       root_group = zarr.open_group(output_path, mode='a')
        
        levels = calculate_levels(volume)
        if levels > 6:
