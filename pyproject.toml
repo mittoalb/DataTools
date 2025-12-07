@@ -1,4 +1,47 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "datatools"
+version = "0.0.1"
+description = "A package for data conversion and analysis tools"
+readme = "README.md"
+requires-python = ">=3.6"
+license = {text = "MIT"}
+authors = [
+    {name = "Alberto Mittone", email = "amittone@anl.gov"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fabio",
+    "zarr>=3.0.0",
+    "click",
+    "numcodecs",
+    "h5py",
+    "xraylib",
+    "tqdm",
+]
+
+[project.urls]
+Homepage = "https://github.com/mittoalb/DataTools"
+Repository = "https://github.com/mittoalb/DataTools"
+
+[project.scripts]
+tiff2zarr = "DataTools.DataFormats.tiff2zarr:main"
+bmp2zarr = "DataTools.DataFormats.bmp2zarr:main"
+zarr2tiff = "DataTools.DataFormats.zarr2tiff:main"
+esrf2aps = "DataTools.Facilities.esrf2aps:main"
+edf2aps = "DataTools.Facilities.edf2aps:main"
+abscalc = "DataTools.Physics.abscalc:main"
+create_vol = "DataTools.Tools.create_vol:main"
+extract_meta = "DataTools.Tools.extract_meta:main"
+polar = "DataTools.Tools.polar_removal:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["DataTools*"]

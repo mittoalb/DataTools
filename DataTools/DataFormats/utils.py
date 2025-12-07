@@ -60,7 +60,6 @@ def calculate_global_min_max(input_dir, bin_factor=4):
         global_min = min(global_min, binned_image.min())
         global_max = max(global_max, binned_image.max())
     
-    #info(f"Global min and max found: {global_min}, dtype: {global_max}")
     return global_min, global_max
       
     
@@ -147,7 +146,6 @@ def load_tiff_chunked(input_dir, dtype, chunk_size, start_index=0, global_min=No
 
         zarr_chunk[i] = image.astype(dtype)
         
-    #info(f"Loaded TIFF chunk with shape: {zarr_chunk.shape}, dtype: {zarr_chunk.dtype}")
     return zarr_chunk, end_index
  
 
@@ -164,6 +162,7 @@ def downsample(data, max_levels=5):
     - offsets (list of lists): Computed voxel offsets for each mip level.
     """
     levels = [data]
+<<<<<<< HEAD
     offsets = [[0, 0, 0]]  # MIP-0 has zero translation
 
     for level in range(1, max_levels + 1):
@@ -179,4 +178,13 @@ def downsample(data, max_levels=5):
         offsets.append(offset)
 
     return levels, offsets
+=======
+>>>>>>> dev
 
+    for level in range(1, max_levels + 1):
+        factor = 2 #2 each level
+
+        downsampled = downscale_local_mean(levels[-1], (factor, factor, factor))
+        levels.append(downsampled)
+
+    return levels

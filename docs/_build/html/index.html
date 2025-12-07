@@ -1,0 +1,241 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to DataTools’s documentation! &mdash; DataTools 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            DataTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cli_tools.html">Command-Line Tools</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/dataformats.html">DataFormats Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/facilities.html">Facilities Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/physics.html">Physics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/tools.html">Tools Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/globus.html">Globus Module</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to DataTools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">DataTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Welcome to DataTools’s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/mittoalb/DataTools/blob/main/docs/index.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-datatools-s-documentation">
+<h1>Welcome to DataTools’s documentation!<a class="headerlink" href="#welcome-to-datatools-s-documentation" title="Link to this heading"></a></h1>
+<p><strong>DataTools</strong> is a Python package for scientific data processing, designed to convert
+imaging files such as EDF, TIFF, and BMP into efficient formats like HDF5 and Zarr.
+It provides tools for data format conversion, physics calculations, and facility-specific
+data handling.</p>
+<section id="features">
+<h2>Features<a class="headerlink" href="#features" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><strong>Data Format Conversion</strong>: Convert between TIFF, BMP, EDF, Zarr, and HDF5 formats</p></li>
+<li><p><strong>Physics Calculations</strong>: X-ray absorption calculations using xraylib</p></li>
+<li><p><strong>Facility Tools</strong>: ESRF to APS data conversion utilities</p></li>
+<li><p><strong>Data Processing</strong>: Volume creation, metadata extraction, and polar artifact removal</p></li>
+<li><p><strong>Cloud Integration</strong>: Globus and Google Cloud Storage support</p></li>
+</ul>
+</section>
+<section id="quick-start">
+<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading"></a></h2>
+<p>Installation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">datatools</span>
+</pre></div>
+</div>
+<p>Basic usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Convert TIFF to Zarr</span>
+<span class="n">tiff2zarr</span> <span class="nb">input</span><span class="o">.</span><span class="n">tiff</span> <span class="n">output</span><span class="o">.</span><span class="n">zarr</span>
+
+<span class="c1"># Convert BMP to Zarr</span>
+<span class="n">bmp2zarr</span> <span class="n">input_directory</span> <span class="n">output</span><span class="o">.</span><span class="n">zarr</span>
+
+<span class="c1"># Calculate X-ray absorption</span>
+<span class="n">abscalc</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="documentation-contents">
+<h1>Documentation Contents<a class="headerlink" href="#documentation-contents" title="Link to this heading"></a></h1>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#requirements">Requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#install-from-pypi">Install from PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#install-from-source">Install from Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#install-with-optional-dependencies">Install with Optional Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#development-installation">Development Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#verifying-installation">Verifying Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#troubleshooting">Troubleshooting</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="usage.html">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#data-format-conversion">Data Format Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#facility-data-conversion">Facility Data Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#physics-calculations">Physics Calculations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#data-processing-tools">Data Processing Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#working-with-zarr-arrays">Working with Zarr Arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#cloud-storage-integration">Cloud Storage Integration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="usage.html#example-workflows">Example Workflows</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli_tools.html">Command-Line Tools</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#data-format-conversion-tools">Data Format Conversion Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#facility-conversion-tools">Facility Conversion Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#physics-tools">Physics Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#data-processing-tools">Data Processing Tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#common-workflow-examples">Common Workflow Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#performance-tips">Performance Tips</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cli_tools.html#getting-help">Getting Help</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/dataformats.html">DataFormats Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/dataformats.html#tiff-to-zarr-conversion">TIFF to Zarr Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/dataformats.html#bmp-to-zarr-conversion">BMP to Zarr Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/dataformats.html#zarr-to-tiff-conversion">Zarr to TIFF Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/dataformats.html#utilities">Utilities</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/facilities.html">Facilities Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/facilities.html#esrf-to-aps-conversion">ESRF to APS Conversion</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/facilities.html#edf-to-aps-conversion">EDF to APS Conversion</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/physics.html">Physics Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/physics.html#absorption-calculator">Absorption Calculator</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/tools.html">Tools Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/tools.html#volume-creation">Volume Creation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/tools.html#metadata-extraction">Metadata Extraction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/tools.html#polar-artifact-removal">Polar Artifact Removal</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/tools.html#tomopy-reconstruction">Tomopy Reconstruction</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/globus.html">Globus Module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/globus.html#i-o-utilities">I/O Utilities</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/globus.html#n5-to-slice-conversion">N5 to Slice Conversion</a></li>
+</ul>
+</li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to DataTools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
