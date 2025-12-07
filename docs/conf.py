@@ -39,6 +39,21 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode']
 
+# Mock imports for dependencies that can't be installed on Read the Docs
+autodoc_mock_imports = [
+    'numpy',
+    'zarr',
+    'h5py',
+    'tifffile',
+    'fabio',
+    'xraylib',
+    'click',
+    'numcodecs',
+    'tqdm',
+    'skimage',
+    'google',
+]
+
 #     'sphinxcontrib.bibtex',
 
 """
@@ -344,7 +359,23 @@ class Mock(object):
     def __radd__(self, other):
         return Mock()
 
-MOCK_MODULES = ['numpy']
+MOCK_MODULES = [
+    'numpy',
+    'numpy.typing',
+    'zarr',
+    'h5py',
+    'tifffile',
+    'fabio',
+    'xraylib',
+    'click',
+    'numcodecs',
+    'tqdm',
+    'skimage',
+    'skimage.transform',
+    'google',
+    'google.cloud',
+    'google.cloud.storage',
+]
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = Mock()
