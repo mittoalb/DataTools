@@ -2,7 +2,7 @@ import click
 import zarr
 import tifffile as tiff
 import os
-import numpy as np
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 from .log import info, error, setup_custom_logger
