@@ -1,21 +1,18 @@
 fabio
 click
-zarr
+zarr>=3.0.0
 numcodecs
 h5py
 xraylib
 tqdm
-<<<<<<< Updated upstream
 tifffile
 scikit-image
-=======
 z5py
-
-
+sphinx
+sphinx_rtd_theme
 google-api-core
 google-auth
 google-cloud-core
 google-cloud-storage
 google-crc32c
-google-resumable-media 
->>>>>>> Stashed changes
+google-resumable-media
