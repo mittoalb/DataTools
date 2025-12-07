@@ -9,29 +9,18 @@ sphinx:
   configuration: docs/conf.py
   fail_on_warning: false
 
-# Build formats
-formats:
-  - pdf
-  - epub
+# Build formats (PDF/ePub disabled to speed up builds)
+# formats:
+#   - pdf
+#   - epub
 
 # Python configuration
 python:
-  version: "3.9"
   install:
-    - requirements: requirements.txt
-    - method: pip
-      path: .
-
-# Submodules configuration
-submodules:
-  include: []
-  recursive: false
+    - requirements: docs/requirements.txt
 
 # Build configuration
 build:
   os: ubuntu-22.04
   tools:
     python: "3.9"
-  jobs:
-    post_build:
-      - echo "Documentation build completed"
