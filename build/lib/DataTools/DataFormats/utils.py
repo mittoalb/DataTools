@@ -60,7 +60,6 @@ def calculate_global_min_max(input_dir, bin_factor=4):
         global_min = min(global_min, binned_image.min())
         global_max = max(global_max, binned_image.max())
     
-    #info(f"Global min and max found: {global_min}, dtype: {global_max}")
     return global_min, global_max
       
     
@@ -147,7 +146,6 @@ def load_tiff_chunked(input_dir, dtype, chunk_size, start_index=0, global_min=No
 
         zarr_chunk[i] = image.astype(dtype)
         
-    #info(f"Loaded TIFF chunk with shape: {zarr_chunk.shape}, dtype: {zarr_chunk.dtype}")
     return zarr_chunk, end_index
  
 
@@ -173,10 +171,9 @@ def downsample(data, max_levels=5):
         downsampled = downscale_local_mean(levels[-1], (factor, factor, factor))
 
         # No BS offset calculations, translation should always be zero
-        offset = [0, 0, 0]  
+        offset = [0, 0, 0]
 
         levels.append(downsampled)
         offsets.append(offset)
 
     return levels, offsets
-

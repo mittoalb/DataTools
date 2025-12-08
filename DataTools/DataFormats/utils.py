@@ -162,7 +162,6 @@ def downsample(data, max_levels=5):
     - offsets (list of lists): Computed voxel offsets for each mip level.
     """
     levels = [data]
-<<<<<<< HEAD
     offsets = [[0, 0, 0]]  # MIP-0 has zero translation
 
     for level in range(1, max_levels + 1):
@@ -172,19 +171,9 @@ def downsample(data, max_levels=5):
         downsampled = downscale_local_mean(levels[-1], (factor, factor, factor))
 
         # No BS offset calculations, translation should always be zero
-        offset = [0, 0, 0]  
+        offset = [0, 0, 0]
 
         levels.append(downsampled)
         offsets.append(offset)
 
     return levels, offsets
-=======
->>>>>>> dev
-
-    for level in range(1, max_levels + 1):
-        factor = 2 #2 each level
-
-        downsampled = downscale_local_mean(levels[-1], (factor, factor, factor))
-        levels.append(downsampled)
-
-    return levels

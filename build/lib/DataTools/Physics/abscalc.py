@@ -1,4 +1,3 @@
-import numpy as np
 import xraylib
 import sys
 import argparse
