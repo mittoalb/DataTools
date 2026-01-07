@@ -1,7 +1,0 @@
-fabio
-zarr
-click
-numcodecs
-h5py
-xraylib
-tqdm
