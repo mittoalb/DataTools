@@ -18,14 +18,22 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "numpy",
+    "tifffile",
+    "scikit-image",
+    "scipy",
     "fabio",
-    "zarr",
     "click",
     "numcodecs",
     "h5py",
     "xraylib",
     "tqdm",
+    "fsspec",
 ]
+
+[project.optional-dependencies]
+zarr2 = ["zarr>=2.0,<3.0"]
+zarr3 = ["zarr>=3.0"]
 
 [project.urls]
 Homepage = "https://github.com/mittoalb/DataTools"
@@ -33,6 +41,7 @@ Repository = "https://github.com/mittoalb/DataTools"
 
 [project.scripts]
 tiff2zarr = "DataTools.DataFormats.tiff2zarr:main"
+tiff2zarr_v2 = "DataTools.DataFormats.tiff2zarr_v2:main"
 bmp2zarr = "DataTools.DataFormats.bmp2zarr:main"
 zarr2tiff = "DataTools.DataFormats.zarr2tiff:main"
 esrf2aps = "DataTools.Facilities.esrf2aps:main"
