@@ -4,13 +4,17 @@ import numpy as np
 import zarr
 import click
 import tifffile
-from numcodecs import Blosc
 from tqdm import tqdm
 from .utils import load_tiff_chunked, downsample
 from .log import info, setup_custom_logger
 
 # Check Zarr version to use appropriate API
 ZARR_VERSION = int(zarr.__version__.split('.')[0])
+
+if ZARR_VERSION >= 3:
+    from zarr.codecs import BloscCodec, BytesCodec
+else:
+    from numcodecs import Blosc
 
 def calculate_levels(data):
    get_divisions = lambda n: (n & -n).bit_length() - 1
@@ -214,20 +218,19 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
            data = data.astype(original_dtype)
            dataset_name = f"{level}"
 
-           # Both Zarr v2 and v3 support compressor parameter with numcodecs
-           compressor = Blosc(cname=compression, clevel=1, shuffle=2)
-
            if ZARR_VERSION >= 3:
-               # Zarr v3 uses create_array
+               # Zarr v3 uses codecs
+               codecs = [BytesCodec(), BloscCodec(cname=compression, clevel=1)]
                z = root_group.create_array(
                    name=dataset_name,
                    shape=data.shape,
                    chunks=chunks,
                    dtype=data.dtype,
-                   compressor=compressor
+                   codecs=codecs
                )
            else:
-               # Zarr v2 uses create_dataset
+               # Zarr v2 uses compressor with numcodecs
+               compressor = Blosc(cname=compression, clevel=1, shuffle=2)
                z = root_group.create_dataset(
                    name=dataset_name,
                    shape=data.shape,
