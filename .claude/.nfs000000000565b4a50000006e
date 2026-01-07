@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat:*)",
+      "Bash(make clean:*)",
+      "Bash(make html:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(pip search:*)",
+      "Bash(conda search:*)",
+      "Bash(conda install:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(tiff2zarr --help:*)",
+      "Bash(find:*)",
+      "Bash(/bin/python --version)",
+      "Bash(/bin/python -c \"from DataTools.DataFormats.tiff2zarr import main; print([p.name for p in main.params])\")",
+      "Bash(/bin/python -c \"from DataTools.DataFormats.tiff2zarr import main; main([''''--help''''])\")"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
