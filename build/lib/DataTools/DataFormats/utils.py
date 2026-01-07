@@ -4,6 +4,7 @@ import tifffile as tiff
 from skimage.transform import resize
 from skimage.transform import downscale_local_mean
 
+from .log import info
 import time
 import sys
 from functools import wraps
@@ -161,11 +162,18 @@ def downsample(data, max_levels=5):
     - offsets (list of lists): Computed voxel offsets for each mip level.
     """
     levels = [data]
+    offsets = [[0, 0, 0]]  # MIP-0 has zero translation
 
     for level in range(1, max_levels + 1):
-        factor = 2 #2 each level
+        factor = 2  # We downsample by a factor of 2 at each step
 
+        # Downsample from the previous level, NOT from the original every time
         downsampled = downscale_local_mean(levels[-1], (factor, factor, factor))
-        levels.append(downsampled)
 
-    return levels
+        # No BS offset calculations, translation should always be zero
+        offset = [0, 0, 0]
+
+        levels.append(downsampled)
+        offsets.append(offset)
+
+    return levels, offsets

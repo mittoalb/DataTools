@@ -22,6 +22,7 @@ DataTools/Physics/abscalc.py
 DataTools/Tools/__init__.py
 DataTools/Tools/create_vol.py
 DataTools/Tools/extract_meta.py
+DataTools/Tools/polar_removal.py
 DataTools/Tools/tomopy_reco.py
 datatools.egg-info/PKG-INFO
 datatools.egg-info/SOURCES.txt
