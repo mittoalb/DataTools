@@ -9,6 +9,8 @@ from tqdm import tqdm
 from .utils import load_tiff_chunked, downsample
 from .log import info, setup_custom_logger
 
+ZARR_MAJOR = int(zarr.__version__.split('.')[0])
+
 def calculate_levels(data):
    get_divisions = lambda n: (n & -n).bit_length() - 1
    dim = []
@@ -180,9 +182,29 @@ def scale_to_dtype(data, min_val, max_val, target_dtype):
    
    return scaled
 
+def _open_group_v2(output_path, mode):
+   """Open a Zarr v2 group, regardless of installed zarr major version."""
+   if ZARR_MAJOR >= 3:
+       return zarr.open_group(output_path, mode=mode, zarr_format=2)
+   return zarr.open_group(output_path, mode=mode)
+
+
+def _create_v2_array(group, name, shape, chunks, dtype, compressor):
+   """Create a Zarr v2 array under group, regardless of installed zarr major version."""
+   if ZARR_MAJOR >= 3:
+       # zarr 3 writes v2 format when the parent group is v2; numcodecs.Blosc
+       # is passed via `compressors=` (singular `compressor=` is deprecated).
+       return group.create_array(
+           name=name, shape=shape, chunks=chunks, dtype=dtype, compressors=compressor
+       )
+   return group.create_dataset(
+       name=name, shape=shape, chunks=chunks, dtype=dtype, compressor=compressor
+   )
+
+
 def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', original_dtype=np.uint8, shard_size=None):
    """
-   Save volume to Zarr v3 format with optional sharding.
+   Save volume to Zarr v2 format.
 
    Parameters:
    - volume: numpy array to save
@@ -192,38 +214,36 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
    - pixel_size: pixel size in micrometers
    - mode: 'w' for write (new), 'a' for append
    - original_dtype: target data type
-   - shard_size: tuple of shard sizes (None to disable sharding)
+   - shard_size: ignored (Zarr v2 has no sharding; accepted for CLI compatibility)
    """
-   # Only create compressor for write mode
-   # In append mode, zarr will use the existing compressor settings from the dataset
-   if mode == 'w':
-       compressor = Blosc(cname=compression, clevel=1, shuffle=2)
+   compressor = Blosc(cname=compression, clevel=1, shuffle=2)
 
    if mode == 'w':
        if os.path.exists(output_path):
            shutil.rmtree(output_path)
-       root_group = zarr.open_group(output_path, mode='w')
-       
+       root_group = _open_group_v2(output_path, mode='w')
+
        # Calculate pyramid levels and create datasets metadata
        levels = calculate_levels(volume)
        if levels > 6:
            levels = 6
-       
+
        pyramid_levels, _ = downsample(volume, levels)
        datasets = []
-       
+
        for level, data in enumerate(pyramid_levels):
            data = data.astype(original_dtype)
            dataset_name = f"{level}"
 
-           # Note: In zarr v3, sharding is configured via codecs, not chunks parameter
-           # For now, we always use the chunks parameter as-is
-           # The shard_size parameter is reserved for future zarr v3 sharding support
-           z = root_group.create_dataset(
-               name=dataset_name, shape=data.shape, chunks=chunks, dtype=data.dtype, compressor=compressor
+           # Clamp chunks to the level's shape so small pyramid tops don't
+           # carry oversized chunk metadata.
+           level_chunks = tuple(min(c, s) for c, s in zip(chunks, data.shape))
+
+           z = _create_v2_array(
+               root_group, dataset_name, data.shape, level_chunks, data.dtype, compressor
            )
            z[:] = data
-           
+
            scale_factor = 2 ** level
            datasets.append({
                "path": dataset_name,
@@ -232,7 +252,7 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
                    {"type": "translation", "translation": [2**(level-1) - 0.5, 2**(level-1) - 0.5, 2**(level-1) - 0.5]}
                ]
            })
-       
+
        # Set metadata only once when creating new zarr file
        root_group.attrs["multiscales"] = [{
            "version": "0.4",
@@ -251,20 +271,20 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
                "kwargs": {"anti_aliasing": True, "preserve_range": True}
            }
        }]
-       
+
    else:
-       root_group = zarr.open_group(output_path, mode='a')
-       
+       root_group = _open_group_v2(output_path, mode='a')
+
        levels = calculate_levels(volume)
        if levels > 6:
            levels = 6
-       
+
        pyramid_levels, _ = downsample(volume, levels)
-       
+
        for level, data in enumerate(pyramid_levels):
            data = data.astype(original_dtype)
            dataset_name = f"{level}"
-           
+
            if dataset_name in root_group:
                z = root_group[dataset_name]
                # Resize array to accommodate new data

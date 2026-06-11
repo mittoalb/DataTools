@@ -25,15 +25,12 @@ dependencies = [
     "fabio",
     "click",
     "numcodecs",
+    "zarr>=3.0",
     "h5py",
     "xraylib",
     "tqdm",
     "fsspec",
 ]
-
-[project.optional-dependencies]
-zarr2 = ["zarr>=2.0,<3.0"]
-zarr3 = ["zarr>=3.0"]
 
 [project.urls]
 Homepage = "https://github.com/mittoalb/DataTools"
