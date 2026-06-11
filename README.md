@@ -172,6 +172,66 @@ polar input_folder/ -o output_folder/ --threads 8 --pattern "*.tif*"
 
 ---
 
+## Viewing the output
+
+A Zarr store written by `tiff2zarr` is a directory you can open from Python or from a viewer.
+
+### From Python
+
+```python
+import zarr
+g = zarr.open_group('/path/to/out.zarr', mode='r')
+print(list(g.keys()))            # pyramid levels: ['0', '1', '2', ...]
+print(g.attrs.get('multiscales'))  # OME-NGFF metadata
+vol = g['0'][:]                  # load full-res as numpy
+slice_z = g['0'][100, :, :]      # single Z-slice (lazy)
+```
+
+Quick sanity check that the pyramid is real:
+
+```bash
+python -c "
+import zarr
+g = zarr.open_group('/path/to/out.zarr', 'r')
+for k in sorted(g.keys()): print(k, g[k].shape, g[k].dtype)
+"
+```
+
+### With napari (best for OME-NGFF multiscale)
+
+```bash
+pip install "napari[all]" napari-ome-zarr
+napari /path/to/out.zarr
+```
+
+To confirm napari loaded the pyramid as a single multiscale layer (not separate layers per level), open the napari console (`View → Toggle Console`) and run:
+
+```python
+viewer.layers[0].multiscale            # → True
+[a.shape for a in viewer.layers[0].data]  # → [(N,Y,X), (N/2,Y/2,X/2), ...]
+```
+
+If `multiscale` is `False`, force the OME-NGFF reader:
+
+```bash
+napari --plugin napari-ome-zarr /path/to/out.zarr
+```
+
+### Format identification
+
+- **Zarr v3** (this branch): root contains `zarr.json` with `"zarr_format": 3`.
+- **Zarr v2** (`dev_zarr2` branch): root contains `.zgroup` with `{"zarr_format": 2}`.
+
+Both formats are read transparently by `zarr.open_group` and napari.
+
+### Round-trip back to TIFF
+
+```bash
+zarr2tiff /path/to/out.zarr /path/to/tiff_out --resolution 0 --dtype uint16 --threads 4
+```
+
+---
+
 ## Other scripts (not registered as console entry points)
 
 These ship in the package but are invoked directly with `python -m` or as a file.
