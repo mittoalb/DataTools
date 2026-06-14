@@ -9,6 +9,21 @@ from tqdm import tqdm
 from .utils import load_tiff_chunked, downsample
 from .log import info, setup_custom_logger
 
+
+def pad_for_pyramid(arr, target_levels):
+    """Edge-pad a 3D array so each dim is a multiple of 2**target_levels.
+
+    No-op when target_levels <= 0.
+    """
+    if target_levels <= 0:
+        return arr
+    multiple = 2 ** target_levels
+    pads = tuple((0, (multiple - s % multiple) % multiple) for s in arr.shape)
+    if all(p == (0, 0) for p in pads):
+        return arr
+    return np.pad(arr, pads, mode='edge')
+
+
 def calculate_levels(data):
    get_divisions = lambda n: (n & -n).bit_length() - 1
    dim = []
@@ -290,8 +305,9 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
 @click.option('--min_val', type=float, default=None, help='Manually specify the minimum value for scaling. If provided, automatic calculation will be skipped.')
 @click.option('--max_val', type=float, default=None, help='Manually specify the maximum value for scaling. If provided, automatic calculation will be skipped.')
 @click.option('--shard_size', type=(int, int, int), default=None, help='Shard size for Zarr v3 sharding as a tuple of three integers. If not specified, sharding is disabled.')
+@click.option('--levels', type=int, default=0, help='Guarantee N pyramid levels by edge-padding chunks to a multiple of 2**N. 0 (default) = no padding, use natural alignment.')
 def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_size, verbose,
-        min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, shard_size):
+        min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, shard_size, levels):
    """
    Main function to process TIFF images and save them as a Zarr v3 store with multiscale representations.
 
@@ -359,8 +375,19 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
    
    # Count total files for progress tracking
    total_tiff_files = len([f for f in os.listdir(input_dir) if f.lower().endswith(('.tif', '.tiff'))])
+
+   # If the user asked for N guaranteed pyramid levels, ensure chunk_size is a
+   # multiple of 2**N so every chunk downsamples cleanly.
+   if levels > 0:
+       multiple = 2 ** levels
+       if chunk_size % multiple != 0:
+           new_cs = ((chunk_size + multiple - 1) // multiple) * multiple
+           info(f"Rounding --chunk_size {chunk_size} -> {new_cs} (multiple of {multiple} for --levels {levels})")
+           chunk_size = new_cs
+       info(f"Edge-padding each chunk to multiples of {multiple} so all {levels} pyramid levels are produced")
+
    estimated_chunks = (total_tiff_files + chunk_size - 1) // chunk_size  # Ceiling division
-   
+
    info(f"Processing {total_tiff_files} TIFF files in chunks of {chunk_size}")
    
    # Progress bar for main processing
@@ -377,9 +404,15 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
            
            # Apply scaling to target dtype
            stack_scaled = scale_to_dtype(stack, data_min, data_max, target_dtype)
-           
+
+           # Edge-pad to guarantee the requested pyramid depth (no-op if --levels 0)
+           pre_pad_shape = stack_scaled.shape
+           stack_scaled = pad_for_pyramid(stack_scaled, levels)
+           if stack_scaled.shape != pre_pad_shape:
+               info(f"  - Padded {pre_pad_shape} -> {stack_scaled.shape}")
+
            # Log some statistics about the conversion
-           info(f"Chunk stats after conversion:")
+           info("Chunk stats after conversion:")
            info(f"  - Min: {np.min(stack_scaled)}, Max: {np.max(stack_scaled)}")
            info(f"  - Data type: {stack_scaled.dtype}")
            info(f"  - Shape: {stack_scaled.shape}")
