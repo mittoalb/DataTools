@@ -12,7 +12,7 @@ Dependencies
 The package depends on the following libraries:
 
 * fabio - For reading scientific image formats
-* zarr >= 3.0.0 - For Zarr format support
+* zarr >= 2.0 - For Zarr format support. zarr 2.x produces v2 stores only; zarr 3.x produces both v2 and v3 (``--zarr-format`` flag). Install ``zarr>=3`` if you want the choice.
 * click - Command-line interface creation
 * numcodecs - Compression codecs for Zarr
 * h5py - HDF5 file format support
@@ -110,9 +110,16 @@ If you encounter issues installing xraylib, you may need to install it separatel
 
 **Zarr version conflicts**
 
-DataTools requires zarr >= 3.0.0. If you have an older version, upgrade it::
+DataTools works with zarr 2.x and zarr 3.x. The difference is what the writers
+can produce:
 
-    pip install --upgrade zarr
+* zarr 2.x: writes Zarr v2 stores only. ``--zarr-format 3`` will error out.
+* zarr 3.x: writes **both** Zarr v2 and v3, selectable per-run with
+  ``--zarr-format {2,3}``. Readers (``zarr2tiff``) handle both formats.
+
+If you want the choice of output format, install zarr>=3::
+
+    pip install --upgrade "zarr>=3"
 
 **Permission errors on Linux/macOS**
 

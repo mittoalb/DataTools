@@ -9,44 +9,47 @@ Data Format Conversion
 TIFF to Zarr
 ~~~~~~~~~~~~
 
-Convert TIFF image stacks to Zarr format for efficient storage and processing::
+Convert a *directory* of TIFF slices into a multiscale OME-Zarr store. Both
+Zarr v2 and v3 output formats are supported from a single CLI; pick with
+``--zarr-format``::
 
-    from DataTools.DataFormats import tiff2zarr
+    # Default: Zarr v2 (readable by zarr 2.x and 3.x)
+    tiff2zarr /path/to/tiffs/ /path/to/output.zarr
 
-    # Convert a single TIFF file
-    tiff2zarr.convert('input.tiff', 'output.zarr')
+    # Zarr v3 (requires zarr>=3)
+    tiff2zarr /path/to/tiffs/ /path/to/output.zarr --zarr-format 3
 
-Or use the command-line interface::
+The number of pyramid levels is picked automatically from the input dims; the
+intensity range is auto-calibrated from percentiles. See :doc:`cli_tools` for
+the full option list.
 
-    tiff2zarr input.tiff output.zarr
+To tell which format a store is afterwards::
+
+    python -c 'import zarr; g=zarr.open("output.zarr"); print(dict(g.attrs))'
+
+Look for the ``zarr_format`` entry (2 or 3). On disk, v2 stores have
+``.zgroup``/``.zarray`` metadata files; v3 stores have ``zarr.json``.
 
 BMP to Zarr
 ~~~~~~~~~~~
 
-Convert BMP images to Zarr format::
+Convert a directory of BMP images into a multiscale Zarr store (same
+``--zarr-format`` flag as tiff2zarr)::
 
-    from DataTools.DataFormats import bmp2zarr
+    bmp2zarr /path/to/bmps/ /path/to/output.zarr --zarr-format 2
 
-    # Convert BMP directory to Zarr
-    bmp2zarr.convert('input_directory/', 'output.zarr')
-
-Command-line usage::
-
-    bmp2zarr input_directory/ output.zarr
+Supports optional cropping (``--crop startx:endx:starty:endy``) and
+``--autocrop`` based on a thresholded max projection.
 
 Zarr to TIFF
 ~~~~~~~~~~~~
 
-Convert Zarr arrays back to TIFF format::
+Read back a chosen resolution layer of a Zarr store and write it as individual
+TIFF slices (works on both v2 and v3 stores — the reader auto-detects)::
 
-    from DataTools.DataFormats import zarr2tiff
+    zarr2tiff /path/to/input.zarr /path/to/tiff_output_dir/
 
-    # Convert Zarr to TIFF stack
-    zarr2tiff.convert('input.zarr', 'output.tiff')
-
-Command-line usage::
-
-    zarr2tiff input.zarr output.tiff
+Pick a non-base resolution with ``--resolution 2`` for a downsampled export.
 
 Facility Data Conversion
 -------------------------
@@ -156,19 +159,18 @@ Basic Operations
 
 ::
 
+    import subprocess
     import zarr
-    import numpy as np
-    from DataTools.DataFormats import tiff2zarr
 
-    # Convert TIFF to Zarr
-    tiff2zarr.convert('data.tiff', 'data.zarr')
+    # Convert a directory of TIFFs to Zarr via the CLI
+    subprocess.run([
+        'tiff2zarr', 'tiffs/', 'data.zarr', '--zarr-format', '3',
+    ], check=True)
 
-    # Open Zarr array
+    # Open the resulting store (zarr>=3 auto-detects v2 vs v3)
     z = zarr.open('data.zarr', mode='r')
-
-    # Access data
-    print(z.shape)
-    print(z.dtype)
+    print(z['0'].shape, z['0'].dtype)
+    print(dict(z.attrs))   # includes "zarr_format": 2 or 3
 
     # Read subset
     subset = z[0:10, :, :]
@@ -221,8 +223,8 @@ Complete Tomography Processing Pipeline
 
 ::
 
-    # 1. Convert raw TIFF data to Zarr
-    tiff2zarr input_projections/ raw_data.zarr
+    # 1. Convert raw TIFF data to Zarr (v3; drop the flag for v2)
+    tiff2zarr input_projections/ raw_data.zarr --zarr-format 3
 
     # 2. Remove polar artifacts
     polar raw_data.zarr processed_data.zarr
@@ -241,8 +243,8 @@ Multi-facility Data Processing
     # Convert ESRF data to APS format
     esrf2aps esrf_scan001.edf aps_scan001.h5
 
-    # Convert to Zarr for efficient processing
-    tiff2zarr aps_scan001.h5 aps_scan001.zarr
+    # Convert the resulting TIFF stack to Zarr for efficient processing
+    tiff2zarr aps_scan001_tiffs/ aps_scan001.zarr --zarr-format 3
 
     # Process with analysis tools
     polar aps_scan001.zarr processed_scan001.zarr

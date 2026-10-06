@@ -10,80 +10,103 @@ Data Format Conversion Tools
 tiff2zarr
 ~~~~~~~~~
 
-Convert TIFF files to Zarr format.
+Convert a directory of TIFF slices into a multiscale OME-Zarr store.
+Produces one dataset per pyramid level (``0``, ``1``, …) under the output
+group, with OME-Zarr v0.4 ``multiscales`` metadata.
 
 **Syntax**::
 
-    tiff2zarr [OPTIONS] INPUT OUTPUT
+    tiff2zarr [OPTIONS] INPUT_DIR OUTPUT_PATH
 
 **Arguments:**
 
-* ``INPUT``: Path to input TIFF file or directory
-* ``OUTPUT``: Path to output Zarr file
+* ``INPUT_DIR``: Directory containing ``*.tif`` / ``*.tiff`` slices (sorted lexicographically along Z).
+* ``OUTPUT_PATH``: Path where the ``.zarr`` directory will be created. Overwritten if it exists.
 
 **Options:**
 
-* ``--compression TEXT``: Compression codec (default: zstd)
-* ``--chunks INTEGER``: Chunk size
-* ``--help``: Show help message
+* ``--zarr-format {2,3}``: Zarr on-disk format. Default ``2`` (works on zarr>=2); ``3`` requires zarr>=3.
+* ``--dtype [int8|int16|int32|uint8|uint16|float32|float64]``: Output pixel type. Default ``uint8``.
+* ``--chunks <Z> <Y> <X>``: Zarr chunk shape. Default ``64 64 64``.
+* ``--chunk_size INT``: Number of TIFFs loaded in memory per iteration. Default ``64``.
+* ``--compression {blosclz,lz4,lz4hc,zlib,zstd}``: Blosc codec. Default ``blosclz``.
+* ``--pixel_size FLOAT``: Voxel size (micrometers) baked into multiscales metadata. Default ``1.0``.
+* ``--levels INT``: Number of pyramid levels. ``0`` (default) = auto-pick from first chunk + image dims.
+* ``--min_val FLOAT`` / ``--max_val FLOAT``: Manual intensity scaling range. If both are given, percentile detection is skipped.
+* ``--min_percentile FLOAT`` / ``--max_percentile FLOAT``: Percentile bounds for auto scaling. Defaults ``0.5`` / ``99.5``.
+* ``--use_histogram``: Use histogram-based range detection instead of percentile.
+* ``--sample_ratio INT``: Pixel subsampling for percentile scan. Default ``100``.
+* ``--verbose``: Print per-chunk stats.
+* ``--help``: Show help message.
+
+**Format inspection:**
+
+The chosen on-disk format is also recorded in ``root.attrs["zarr_format"]`` so
+you can tell afterwards which it is::
+
+    python -c 'import zarr; print(dict(zarr.open("out.zarr").attrs))'
+
+On disk, v2 stores have ``.zgroup`` / ``.zarray`` files; v3 stores have
+``zarr.json``.
 
 **Examples**::
 
-    # Convert single TIFF
-    tiff2zarr input.tiff output.zarr
+    # Default (Zarr v2)
+    tiff2zarr tiffs/ out.zarr
 
-    # Convert with custom compression
-    tiff2zarr --compression blosc input.tiff output.zarr
+    # Zarr v3 with uint16 output
+    tiff2zarr tiffs/ out.zarr --zarr-format 3 --dtype uint16
 
-    # Convert with custom chunk size
-    tiff2zarr --chunks 256 input.tiff output.zarr
+    # Force 6 pyramid levels and manual intensity range
+    tiff2zarr tiffs/ out.zarr --levels 6 --min_val 0 --max_val 65535
 
 bmp2zarr
 ~~~~~~~~
 
-Convert BMP files to Zarr format.
+Convert a directory of BMP images into a multiscale Zarr store. Supports
+optional cropping and the same ``--zarr-format`` flag as ``tiff2zarr``.
 
 **Syntax**::
 
-    bmp2zarr [OPTIONS] INPUT OUTPUT
-
-**Arguments:**
-
-* ``INPUT``: Path to input BMP file or directory
-* ``OUTPUT``: Path to output Zarr file
+    bmp2zarr [OPTIONS] INPUT_DIR OUTPUT_PATH
 
 **Options:**
 
-* ``--compression TEXT``: Compression codec (default: zstd)
-* ``--chunks INTEGER``: Chunk size
-* ``--help``: Show help message
+* ``--zarr-format {2,3}``: On-disk format. Default ``2``.
+* ``--dtype``: Output pixel type. Default ``uint8``.
+* ``--chunks <Z> <Y> <X>``: Zarr chunk shape. Default ``64 64 64``.
+* ``--compression``: Blosc codec. Default ``blosclz``.
+* ``--pixel_size FLOAT``: Voxel size in micrometers. Default ``1.0``.
+* ``--crop startx:endx:starty:endy``: Manual 2D crop box.
+* ``--autocrop``: Auto-crop to the non-background Y/X bounding box.
+* ``--autocrop-threshold INT``: Intensity threshold for ``--autocrop``. Default ``10``.
+* ``--pad INT``: Extra padding around the autocrop box.
+* ``--downsample-mode {2d,3d}``: Downsample only Y/X (``2d``) or Z/Y/X (``3d``). Default ``2d``.
 
 **Examples**::
 
-    # Convert BMP directory
-    bmp2zarr images/ output.zarr
+    # Convert with 2D (Y/X-only) pyramid, default v2 format
+    bmp2zarr images/ out.zarr
 
-    # Convert with custom options
-    bmp2zarr --compression blosc --chunks 128 images/ output.zarr
+    # v3 output, 3D pyramid, with autocrop
+    bmp2zarr images/ out.zarr --zarr-format 3 --downsample-mode 3d --autocrop
 
 zarr2tiff
 ~~~~~~~~~
 
-Convert Zarr arrays to TIFF format.
+Read a chosen resolution layer of a Zarr store (v2 or v3; auto-detected) and
+write it out as individual TIFF slices.
 
 **Syntax**::
 
-    zarr2tiff [OPTIONS] INPUT OUTPUT
-
-**Arguments:**
-
-* ``INPUT``: Path to input Zarr file
-* ``OUTPUT``: Path to output TIFF file
+    zarr2tiff [OPTIONS] INPUT_ZARR OUTPUT_DIR
 
 **Options:**
 
-* ``--bigtiff``: Use BigTIFF format for large files
-* ``--help``: Show help message
+* ``--resolution / -r TEXT``: Pyramid level to export. Default ``'0'`` (full resolution).
+* ``--dtype TEXT``: Numpy dtype for the output TIFFs. Default ``'float32'``.
+* ``--threads INT``: Parallel writer threads. Default ``4``.
+* ``--help``: Show help message.
 
 **Examples**::
 

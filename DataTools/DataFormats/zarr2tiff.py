@@ -26,9 +26,15 @@ def convert_zarr_to_tiff(input_zarr, output_dir, resolution, dtype, threads):
             os.makedirs(output_dir)
             info(f"Created output directory: {output_dir}")
 
-        # Open the Zarr file
+        # Open the Zarr file (zarr>=3 auto-detects v2 vs v3 from the store)
         zarr_store = zarr.open(input_zarr, mode='r')
-        info(f"Opened Zarr file: {input_zarr}")
+        # Report the detected format so the user knows what they're reading.
+        # Prefer the explicit attribute written by our writers; fall back to
+        # the on-disk metadata version if present.
+        detected = zarr_store.attrs.get("zarr_format")
+        if detected is None:
+            detected = getattr(getattr(zarr_store, "metadata", None), "zarr_format", "unknown")
+        info(f"Opened Zarr v{detected} store: {input_zarr}")
 
         # Check if the requested resolution layer exists
         if resolution not in zarr_store:

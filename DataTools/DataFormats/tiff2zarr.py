@@ -2,18 +2,21 @@ import os
 import shutil
 import numpy as np
 import zarr
-from zarr.codecs import BloscCodec
 import click
 import tifffile
+from numcodecs import Blosc
 from tqdm import tqdm
 from .utils import load_tiff_chunked, downsample
 from .log import info, setup_custom_logger
+
+ZARR_MAJOR = int(zarr.__version__.split('.')[0])
 
 
 def pad_for_pyramid(arr, target_levels):
     """Edge-pad a 3D array so each dim is a multiple of 2**target_levels.
 
-    No-op when target_levels <= 0.
+    Only used for pyramid COMPUTATION; callers must crop results back to the
+    real extent before writing to storage so padded voxels never persist.
     """
     if target_levels <= 0:
         return arr
@@ -24,13 +27,16 @@ def pad_for_pyramid(arr, target_levels):
     return np.pad(arr, pads, mode='edge')
 
 
-def calculate_levels(data):
-   get_divisions = lambda n: (n & -n).bit_length() - 1
-   dim = []
-   sh = data.shape
-   for i in range(0, len(sh)):
-       dim.append(get_divisions(sh[i]))
-   return min(dim)
+def calculate_levels(shape):
+    """Max N such that every dim is divisible by 2**N."""
+    get_divisions = lambda n: (n & -n).bit_length() - 1 if n > 0 else 0
+    return min(get_divisions(s) for s in shape)
+
+
+def level_shape(real_shape, level):
+    """Shape of pyramid level L given the real (unpadded) base shape."""
+    f = 2 ** level
+    return tuple(max(1, (s + f - 1) // f) for s in real_shape)
 
 def calculate_percentile_limits(input_dir, low_percentile=0.5, high_percentile=99.5, sample_ratio=100):
    """
@@ -195,99 +201,160 @@ def scale_to_dtype(data, min_val, max_val, target_dtype):
    
    return scaled
 
-def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', original_dtype=np.uint8, shard_size=None):
-   """
-   Save volume to Zarr format with optional sharding.
+def _open_group(output_path, mode, zarr_format):
+    """Open a Zarr group of the requested format.
 
-   Parameters:
-   - volume: numpy array to save
-   - output_path: path to output zarr store
-   - chunks: tuple of chunk sizes
-   - compression: compression algorithm name
-   - pixel_size: pixel size in micrometers
-   - mode: 'w' for write (new), 'a' for append
-   - original_dtype: target data type
-   - shard_size: tuple of shard sizes (None to disable sharding)
-   """
-   if mode == 'w':
-       if os.path.exists(output_path):
-           shutil.rmtree(output_path)
-       root_group = zarr.open_group(output_path, mode='w')
+    zarr_format=2: works on both zarr 2.x and 3.x libraries.
+    zarr_format=3: requires zarr >= 3.
+    """
+    if zarr_format == 3 and ZARR_MAJOR < 3:
+        raise RuntimeError(
+            f"--zarr-format 3 requires zarr>=3; installed is {zarr.__version__}"
+        )
+    if ZARR_MAJOR >= 3:
+        return zarr.open_group(output_path, mode=mode, zarr_format=zarr_format)
+    # zarr 2.x: only v2 output is possible
+    return zarr.open_group(output_path, mode=mode)
 
-       # Calculate pyramid levels and create datasets metadata
-       levels = calculate_levels(volume)
-       if levels > 6:
-           levels = 6
 
-       pyramid_levels, _ = downsample(volume, levels)
-       datasets = []
+def _make_compressor(compression, zarr_format):
+    """Return the appropriate blosc compressor for the chosen output format.
 
-       for level, data in enumerate(pyramid_levels):
-           data = data.astype(original_dtype)
-           dataset_name = f"{level}"
+    v2 uses numcodecs.Blosc (works on both zarr 2 and 3 libraries writing v2
+    stores). v3 requires a zarr-native BytesBytesCodec from zarr.codecs.
+    """
+    if zarr_format == 3:
+        from zarr.codecs import BloscCodec  # local import: only exists on zarr>=3
+        return BloscCodec(cname=compression, clevel=1, shuffle='bitshuffle')
+    return Blosc(cname=compression, clevel=1, shuffle=2)
 
-           # Zarr v3 compression codec
-           compressors = [BloscCodec(cname=compression, clevel=1, shuffle='shuffle')]
 
-           # Zarr v3 uses create_array
-           z = root_group.create_array(
-               name=dataset_name,
-               shape=data.shape,
-               chunks=chunks,
-               dtype=data.dtype,
-               compressors=compressors
-           )
-           z[:] = data
+def _create_array(group, name, shape, chunks, dtype, compressor):
+    """Create an array under group in whichever format the group was opened as."""
+    if ZARR_MAJOR >= 3:
+        # zarr 3: `compressors=` (plural) replaces deprecated `compressor=` and
+        # expects an iterable (works for both v2 and v3 output groups).
+        return group.create_array(
+            name=name, shape=shape, chunks=chunks, dtype=dtype,
+            compressors=[compressor],
+        )
+    return group.create_dataset(
+        name=name, shape=shape, chunks=chunks, dtype=dtype, compressor=compressor
+    )
 
-           scale_factor = 2 ** level
-           datasets.append({
-               "path": dataset_name,
-               "coordinateTransformations": [
-                   {"type": "scale", "scale": [scale_factor, scale_factor, scale_factor]},
-                   {"type": "translation", "translation": [2**(level-1) - 0.5, 2**(level-1) - 0.5, 2**(level-1) - 0.5]}
-               ]
-           })
 
-       # Set metadata only once when creating new zarr file
-       root_group.attrs["multiscales"] = [{
-           "version": "0.4",
-           "name": "example",
-           "axes": [
-               {"name": "z", "type": "space", "unit": "micrometer"},
-               {"name": "y", "type": "space", "unit": "micrometer"},
-               {"name": "x", "type": "space", "unit": "micrometer"}
-           ],
-           "datasets": datasets,
-           "type": "gaussian",
-           "metadata": {
-               "method": "skimage.transform.downscale_local_mean",
-               "version": "0.16.1",
-               "args": "[true]",
-               "kwargs": {"anti_aliasing": True, "preserve_range": True}
-           }
-       }]
+def _store_format_version(root_group, zarr_format):
+    """Record the zarr format explicitly in root attrs for easy inspection."""
+    # The on-disk format can also be read from `root_group.metadata.zarr_format`
+    # (zarr 3) or by looking at .zgroup vs zarr.json on disk, but having it in
+    # user-visible attrs is the clearest answer to "which version is this?".
+    root_group.attrs["zarr_format"] = int(zarr_format)
 
-   else:
-       root_group = zarr.open_group(output_path, mode='a')
 
-       levels = calculate_levels(volume)
-       if levels > 6:
-           levels = 6
+def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
+              original_dtype=np.uint8, target_levels=None, real_shape=None,
+              zarr_format=2):
+    """Append (or create) a multiscale pyramid in a Zarr store.
 
-       pyramid_levels, _ = downsample(volume, levels)
+    Parameters
+    ----------
+    volume : ndarray
+        The chunk to write. May be edge-padded along Z/Y/X so pyramid
+        computation is clean; everything past ``real_shape`` is discarded
+        before anything hits storage.
+    target_levels : int
+        Number of pyramid levels to produce. Fixed for the WHOLE run (do not
+        recompute per chunk); on 'w' it is stored in root attrs, on 'a' it is
+        read back from there and must match what the caller passes.
+    real_shape : (Z, Y, X)
+        The chunk's true (unpadded) extent. Each pyramid level L is cropped
+        to ceil(real_shape / 2**L) before writing.
+    zarr_format : {2, 3}
+        Which on-disk format to write. v2 works on zarr>=2; v3 requires zarr>=3.
+    """
+    if target_levels is None or real_shape is None:
+        raise ValueError("save_zarr now requires target_levels and real_shape")
 
-       for level, data in enumerate(pyramid_levels):
-           data = data.astype(original_dtype)
-           dataset_name = f"{level}"
+    compressor = _make_compressor(compression, zarr_format)
 
-           if dataset_name in root_group:
-               z = root_group[dataset_name]
-               # Resize array to accommodate new data
-               current_shape = z.shape
-               new_shape = (current_shape[0] + data.shape[0],) + current_shape[1:]
-               z.resize(new_shape)
-               # Write new data
-               z[current_shape[0]:] = data
+    if mode == 'w':
+        if os.path.exists(output_path):
+            shutil.rmtree(output_path)
+        root_group = _open_group(output_path, mode='w', zarr_format=zarr_format)
+        _store_format_version(root_group, zarr_format)
+        root_group.attrs["target_levels"] = int(target_levels)
+    else:
+        root_group = _open_group(output_path, mode='a', zarr_format=zarr_format)
+        # Fail loudly if the caller's view of target_levels disagrees with the
+        # one stamped on the store — that was the root cause of the per-chunk
+        # level drift that `--levels` was papering over.
+        stored = int(root_group.attrs.get("target_levels", -1))
+        if stored != int(target_levels):
+            raise ValueError(
+                f"target_levels mismatch: store has {stored}, chunk expects {target_levels}"
+            )
+
+    pyramid_levels, _ = downsample(volume, target_levels)
+    datasets_meta = []
+
+    for level, data in enumerate(pyramid_levels):
+        dataset_name = f"{level}"
+        level_real = level_shape(real_shape, level)
+        # Crop padded pyramid output back to the chunk's real extent so
+        # edge-padding never reaches storage.
+        slicer = tuple(slice(0, s) for s in level_real)
+        data = data[slicer].astype(original_dtype)
+
+        if mode == 'w':
+            # Pre-allocate with just this (first) chunk's real level shape;
+            # subsequent 'a' calls will resize Z as more chunks arrive.
+            level_chunks = tuple(min(c, s) for c, s in zip(chunks, data.shape))
+            z = _create_array(
+                root_group, dataset_name, data.shape, level_chunks, data.dtype, compressor
+            )
+            z[:] = data
+
+            scale_factor = 2 ** level
+            # Correct downscale_local_mean grid offset: level-L voxel centers
+            # sit at ((2**L - 1)/2) in level-0 units along each axis.
+            offset = (2 ** level - 1) / 2.0
+            datasets_meta.append({
+                "path": dataset_name,
+                "coordinateTransformations": [
+                    {"type": "scale",
+                     "scale": [pixel_size * scale_factor] * 3},
+                    {"type": "translation",
+                     "translation": [pixel_size * offset] * 3},
+                ],
+            })
+        else:
+            if dataset_name not in root_group:
+                # Fixed-depth pyramid means every chunk emits every level;
+                # a missing one would be a programming error, not a silent skip.
+                raise RuntimeError(
+                    f"Pyramid level {dataset_name} missing from existing store"
+                )
+            z = root_group[dataset_name]
+            cur = z.shape
+            z.resize((cur[0] + data.shape[0],) + cur[1:])
+            z[cur[0]:] = data
+
+    if mode == 'w':
+        root_group.attrs["multiscales"] = [{
+            "version": "0.4",
+            "name": os.path.basename(output_path.rstrip("/")) or "image",
+            "axes": [
+                {"name": "z", "type": "space", "unit": "micrometer"},
+                {"name": "y", "type": "space", "unit": "micrometer"},
+                {"name": "x", "type": "space", "unit": "micrometer"},
+            ],
+            "datasets": datasets_meta,
+            "type": "mean",
+            "metadata": {
+                "method": "skimage.transform.downscale_local_mean",
+                "kwargs": {"factors": [2, 2, 2]},
+            },
+        }]
 
 @click.command()
 @click.argument('input_dir', type=click.Path(exists=True))
@@ -304,129 +371,117 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w', or
 @click.option('--sample_ratio', type=int, default=100, help='Sample every Nth pixel for percentile calculation (default: 100).')
 @click.option('--min_val', type=float, default=None, help='Manually specify the minimum value for scaling. If provided, automatic calculation will be skipped.')
 @click.option('--max_val', type=float, default=None, help='Manually specify the maximum value for scaling. If provided, automatic calculation will be skipped.')
-@click.option('--shard_size', type=(int, int, int), default=None, help='Shard size for Zarr v3 sharding as a tuple of three integers. If not specified, sharding is disabled.')
-@click.option('--levels', type=int, default=0, help='Guarantee N pyramid levels by edge-padding chunks to a multiple of 2**N. 0 (default) = no padding, use natural alignment.')
+@click.option('--levels', type=click.IntRange(min=0), default=0, help='Number of pyramid levels. 0 (default) = pick automatically from the first chunk + image dims.')
+@click.option('--zarr-format', 'zarr_format', type=click.Choice(['2', '3']), default='2', show_default=True, help='Zarr on-disk format to write. v3 requires zarr>=3.')
 def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_size, verbose,
-        min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, shard_size, levels):
-   """
-   Main function to process TIFF images and save them as a Zarr v3 store with multiscale representations.
+        min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, levels,
+        zarr_format):
+    """
+    Convert a folder of TIFF images into a multiscale OME-Zarr store.
+    """
+    setup_custom_logger(verbose=verbose)
+    zarr_format = int(zarr_format)
+    if zarr_format == 3 and ZARR_MAJOR < 3:
+        raise click.BadParameter(
+            f"--zarr-format 3 requires zarr>=3; installed is {zarr.__version__}"
+        )
+    info(f"=== Writing Zarr v{zarr_format} (library zarr=={zarr.__version__}) ===")
 
-   Parameters:
-   - input_dir (str): Path to the input directory containing TIFF images.
-   - output_path (str): Path to the output Zarr store.
-   - dtype (str): Data type of the images. Choices are 'int8', 'int16', 'int32', 'uint8', 'uint16', 'float32', 'float64'.
-   - chunks (tuple of ints): Chunk size for the Zarr array as a tuple of three integers.
-   - compression (str): Compression algorithm to use for Zarr storage. Choices are 'blosclz', 'lz4', 'lz4hc', 'zlib', 'zstd'.
-   - pixel_size (float): Pixel size in micrometers.
-   - chunk_size (int): Number of TIFF images to load in each chunk.
-   - verbose (bool): Enable verbose logging.
-   - min_percentile (float): Lower percentile for percentile-based min/max calculation.
-   - max_percentile (float): Upper percentile for percentile-based min/max calculation.
-   - use_histogram (bool): Use histogram-based method instead of percentile method.
-   - sample_ratio (int): Sample every Nth pixel for percentile calculation.
-   - min_val (float): Manually specify the minimum value for scaling.
-   - max_val (float): Manually specify the maximum value for scaling.
-   - shard_size (tuple of ints): Shard size for Zarr v3 sharding. If None, sharding is disabled.
+    dtype_map = {
+        'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
+        'uint8': np.uint8, 'uint16': np.uint16,
+        'float32': np.float32, 'float64': np.float64
+    }
+    target_dtype = dtype_map[dtype]
 
-   Returns:
-   - None
-   """
-   setup_custom_logger(verbose=verbose)
-   
-   dtype_map = {
-       'int8': np.int8, 'int16': np.int16, 'int32': np.int32, 
-       'uint8': np.uint8, 'uint16': np.uint16, 
-       'float32': np.float32, 'float64': np.float64
-   }
-   
-   target_dtype = dtype_map[dtype]
-   
-   # Check if manual min/max are provided
-   if min_val is not None and max_val is not None:
-       if min_val >= max_val:
-           raise ValueError(f"min_val ({min_val}) must be less than max_val ({max_val})")
-       
-       data_min = min_val
-       data_max = max_val
-       info(f"Using manually specified data range: [{data_min}, {data_max}]")
-   elif min_val is not None or max_val is not None:
-       raise ValueError("Both --min_val and --max_val must be provided together, or neither should be provided")
-   else:
-       # Calculate percentile-based limits using chosen method
-       if use_histogram:
-           data_min, data_max = calculate_histogram_based_limits(input_dir)
-       else:
-           data_min, data_max = calculate_percentile_limits(
-               input_dir, min_percentile, max_percentile, sample_ratio
-           )
-   
-   info(f"Using data range: [{data_min}, {data_max}] for {dtype} conversion")
+    if min_val is not None and max_val is not None:
+        if min_val >= max_val:
+            raise ValueError(f"min_val ({min_val}) must be less than max_val ({max_val})")
+        data_min, data_max = min_val, max_val
+        info(f"Using manually specified data range: [{data_min}, {data_max}]")
+    elif min_val is not None or max_val is not None:
+        raise ValueError("Both --min_val and --max_val must be provided together, or neither should be provided")
+    else:
+        if use_histogram:
+            data_min, data_max = calculate_histogram_based_limits(input_dir)
+        else:
+            data_min, data_max = calculate_percentile_limits(
+                input_dir, min_percentile, max_percentile, sample_ratio
+            )
 
-   # Log sharding configuration
-   if shard_size is not None:
-       info(f"Zarr v3 sharding enabled with shard size: {shard_size}")
-       info(f"Chunk size (within shards): {chunks}")
-   else:
-       info(f"Zarr v3 sharding disabled, using direct chunks: {chunks}")
+    info(f"Using data range: [{data_min}, {data_max}] for {dtype} conversion")
+    info(f"Using chunks: {chunks}")
 
-   start_index = 0
-   mode = 'w'
-   total_chunks_processed = 0
-   
-   # Count total files for progress tracking
-   total_tiff_files = len([f for f in os.listdir(input_dir) if f.lower().endswith(('.tif', '.tiff'))])
+    # Inspect input dims upfront so target_levels is fixed for the whole run
+    # (prevents the per-chunk level drift from the old save_zarr).
+    tiff_files = sorted(
+        f for f in os.listdir(input_dir)
+        if f.lower().endswith(('.tif', '.tiff'))
+    )
+    total_tiff_files = len(tiff_files)
+    if total_tiff_files == 0:
+        raise click.ClickException(f"No TIFF files found in {input_dir}")
+    sample = tifffile.imread(os.path.join(input_dir, tiff_files[0]))
+    real_y, real_x = sample.shape[-2:]
 
-   # If the user asked for N guaranteed pyramid levels, ensure chunk_size is a
-   # multiple of 2**N so every chunk downsamples cleanly.
-   if levels > 0:
-       multiple = 2 ** levels
-       if chunk_size % multiple != 0:
-           new_cs = ((chunk_size + multiple - 1) // multiple) * multiple
-           info(f"Rounding --chunk_size {chunk_size} -> {new_cs} (multiple of {multiple} for --levels {levels})")
-           chunk_size = new_cs
-       info(f"Edge-padding each chunk to multiples of {multiple} so all {levels} pyramid levels are produced")
+    if levels > 0:
+        target_levels = levels
+        multiple = 2 ** target_levels
+        if chunk_size % multiple != 0:
+            new_cs = ((chunk_size + multiple - 1) // multiple) * multiple
+            info(f"Rounding --chunk_size {chunk_size} -> {new_cs} (multiple of {multiple} for --levels {target_levels})")
+            chunk_size = new_cs
+        info(f"Pyramid: {target_levels} levels (padding chunks for computation, cropping to real extent on write)")
+    else:
+        # Auto: pick the largest N such that every full chunk + image Y/X
+        # is divisible by 2**N. Last-chunk Z is handled by the per-chunk
+        # pad/crop in save_zarr regardless.
+        target_levels = calculate_levels((chunk_size, real_y, real_x))
+        info(f"Pyramid: {target_levels} levels (auto from chunk_size={chunk_size}, Y={real_y}, X={real_x})")
 
-   estimated_chunks = (total_tiff_files + chunk_size - 1) // chunk_size  # Ceiling division
+    estimated_chunks = (total_tiff_files + chunk_size - 1) // chunk_size
+    info(f"Processing {total_tiff_files} TIFF files in chunks of {chunk_size}")
 
-   info(f"Processing {total_tiff_files} TIFF files in chunks of {chunk_size}")
-   
-   # Progress bar for main processing
-   with tqdm(total=estimated_chunks, desc="Processing chunks", unit="chunks") as chunk_pbar:
-       while True:
-           # Load data in original dtype (usually higher precision)
-           # Note: You may need to modify load_tiff_chunked to not apply normalization
-           stack, start_index = load_tiff_chunked(input_dir, np.float32, chunk_size, start_index)
-           
-           if stack is None:
-               break
-               
-           info(f"Processing chunk {total_chunks_processed + 1}, shape: {stack.shape}")
-           
-           # Apply scaling to target dtype
-           stack_scaled = scale_to_dtype(stack, data_min, data_max, target_dtype)
+    start_index = 0
+    mode = 'w'
+    total_chunks_processed = 0
 
-           # Edge-pad to guarantee the requested pyramid depth (no-op if --levels 0)
-           pre_pad_shape = stack_scaled.shape
-           stack_scaled = pad_for_pyramid(stack_scaled, levels)
-           if stack_scaled.shape != pre_pad_shape:
-               info(f"  - Padded {pre_pad_shape} -> {stack_scaled.shape}")
+    with tqdm(total=estimated_chunks, desc="Processing chunks", unit="chunks") as chunk_pbar:
+        while True:
+            stack, start_index = load_tiff_chunked(input_dir, np.float32, chunk_size, start_index)
+            if stack is None:
+                break
 
-           # Log some statistics about the conversion
-           info("Chunk stats after conversion:")
-           info(f"  - Min: {np.min(stack_scaled)}, Max: {np.max(stack_scaled)}")
-           info(f"  - Data type: {stack_scaled.dtype}")
-           info(f"  - Shape: {stack_scaled.shape}")
-           
-           save_zarr(stack_scaled, output_path, chunks, compression, pixel_size, mode, original_dtype=target_dtype, shard_size=shard_size)
-           mode = 'a'
-           total_chunks_processed += 1
-           chunk_pbar.update(1)
-           
-           if start_index >= total_tiff_files:
-               break
-   
-   info(f"Processing complete! Total chunks processed: {total_chunks_processed}")
-   info(f"Output saved to: {output_path}")
+            info(f"Processing chunk {total_chunks_processed + 1}, shape: {stack.shape}")
+
+            stack_scaled = scale_to_dtype(stack, data_min, data_max, target_dtype)
+            real_shape = stack_scaled.shape  # (real_cz, real_y, real_x) BEFORE padding
+
+            # Pad for clean pyramid computation; save_zarr crops back to real_shape.
+            padded = pad_for_pyramid(stack_scaled, target_levels)
+            if padded.shape != real_shape:
+                info(f"  - Padded {real_shape} -> {padded.shape} (for pyramid compute only)")
+
+            info(f"Chunk stats: min={np.min(stack_scaled)} max={np.max(stack_scaled)} dtype={stack_scaled.dtype}")
+
+            save_zarr(
+                padded, output_path, chunks, compression, pixel_size, mode,
+                original_dtype=target_dtype,
+                target_levels=target_levels,
+                real_shape=real_shape,
+                zarr_format=zarr_format,
+            )
+            mode = 'a'
+            total_chunks_processed += 1
+            chunk_pbar.update(1)
+
+            if start_index >= total_tiff_files:
+                break
+
+    info(f"Processing complete! Total chunks processed: {total_chunks_processed}")
+    info(f"Output saved to: {output_path}")
+    info(f"=== Wrote Zarr v{zarr_format}. Inspect with: python -c 'import zarr; g=zarr.open(\"{output_path}\"); print(dict(g.attrs))' ===")
+
 
 if __name__ == "__main__":
-   main()
+    main()
