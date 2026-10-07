@@ -165,11 +165,9 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
         shutil.rmtree(output_path)
 
     root = _open_group(output_path, mode='w', zarr_format=zarr_format)
-    root.attrs["zarr_format"] = int(zarr_format)
     compressor = _make_compressor(compression, zarr_format)
 
     target_levels = calculate_levels(volume.shape, mode=downsample_mode)
-    root.attrs["target_levels"] = int(target_levels)
     print(f"Calculated {target_levels} pyramid levels for mode: {downsample_mode}")
 
     pyramid = downsample(volume, target_levels, mode=downsample_mode)
@@ -198,11 +196,9 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
             ],
         })
 
-    # NGFF spec version is pinned to the zarr format (Neuroglancer's v3 reader
-    # rejects root-level multiscales as invalid; v3 wants the "ome" key).
-    ngff_version = "0.5" if zarr_format == 3 else "0.4"
-    multiscales = [{
-        "version": ngff_version,
+    # OME-NGFF 0.4 at root attributes works for both v2 and v3 in Neuroglancer.
+    root.attrs["multiscales"] = [{
+        "version": "0.4",
         "name": "bmp_stack",
         "axes": [
             {"name": "z", "type": "space", "unit": "micrometer"},
@@ -216,10 +212,6 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
             "mode": downsample_mode,
         },
     }]
-    if zarr_format == 3:
-        root.attrs["ome"] = {"version": ngff_version, "multiscales": multiscales}
-    else:
-        root.attrs["multiscales"] = multiscales
     root.attrs["pixel_size"] = pixel_size
     print(f"Zarr v{zarr_format} store saved at: {output_path}")
 

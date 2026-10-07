@@ -273,14 +273,6 @@ def _resolve_level_shards(user_shards, level_chunks, level_shape):
     return tuple(out)
 
 
-def _store_format_version(root_group, zarr_format):
-    """Record the zarr format explicitly in root attrs for easy inspection."""
-    # The on-disk format can also be read from `root_group.metadata.zarr_format`
-    # (zarr 3) or by looking at .zgroup vs zarr.json on disk, but having it in
-    # user-visible attrs is the clearest answer to "which version is this?".
-    root_group.attrs["zarr_format"] = int(zarr_format)
-
-
 def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
               original_dtype=np.uint8, target_levels=None, real_shape=None,
               zarr_format=2, shards=None):
@@ -317,20 +309,22 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
         if os.path.exists(output_path):
             shutil.rmtree(output_path)
         root_group = _open_group(output_path, mode='w', zarr_format=zarr_format)
-        _store_format_version(root_group, zarr_format)
-        root_group.attrs["target_levels"] = int(target_levels)
-        if shards is not None:
-            root_group.attrs["shards"] = list(shards)
+        # NOTE: we deliberately do NOT stamp zarr_format / target_levels /
+        # shards into attrs — the pre-modification writer only wrote
+        # "multiscales" at the root, and strict OME-Zarr readers (notably
+        # Neuroglancer) reject the file when extra keys show up next to it.
     else:
         root_group = _open_group(output_path, mode='a', zarr_format=zarr_format)
-        # Fail loudly if the caller's view of target_levels disagrees with the
-        # one stamped on the store — that was the root cause of the per-chunk
-        # level drift that `--levels` was papering over.
-        stored = int(root_group.attrs.get("target_levels", -1))
-        if stored != int(target_levels):
-            raise ValueError(
-                f"target_levels mismatch: store has {stored}, chunk expects {target_levels}"
-            )
+        # Append-mode consistency check: derive target_levels from the existing
+        # array keys (one per pyramid level, 0..N) instead of a stored attr.
+        existing = sorted(k for k in root_group.array_keys())
+        if existing:
+            stored = len(existing) - 1
+            if stored != int(target_levels):
+                raise ValueError(
+                    f"target_levels mismatch: store has {stored} (arrays {existing}), "
+                    f"chunk expects {target_levels}"
+                )
 
     pyramid_levels, _ = downsample(volume, target_levels)
     datasets_meta = []
@@ -380,13 +374,13 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
             z[cur[0]:] = data
 
     if mode == 'w':
-        # OME-NGFF spec version is pinned to the Zarr format:
-        #   v2 store -> NGFF 0.4 (multiscales at root attributes)
-        #   v3 store -> NGFF 0.5 (multiscales nested under "ome" key)
-        # Neuroglancer's v3 reader rejects root-level multiscales as invalid.
-        ngff_version = "0.5" if zarr_format == 3 else "0.4"
+        # OME-NGFF 0.4 metadata at the root attributes works for BOTH Zarr v2
+        # AND v3 in Neuroglancer and other common readers (napari, viv).
+        # Officially NGFF 0.5 is the spec-pinned pair for Zarr v3 (nested under
+        # an "ome" key), but Neuroglancer's reader currently prefers / expects
+        # the 0.4-at-root layout even on v3 stores, so we keep that for now.
         multiscales = [{
-            "version": ngff_version,
+            "version": "0.4",
             "name": os.path.basename(output_path.rstrip("/")) or "image",
             "axes": [
                 {"name": "z", "type": "space", "unit": "micrometer"},
@@ -400,11 +394,7 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
                 "kwargs": {"factors": [2, 2, 2]},
             },
         }]
-        if zarr_format == 3:
-            # NGFF 0.5 puts all OME metadata under this single key.
-            root_group.attrs["ome"] = {"version": ngff_version, "multiscales": multiscales}
-        else:
-            root_group.attrs["multiscales"] = multiscales
+        root_group.attrs["multiscales"] = multiscales
 
 @click.command()
 @click.argument('input_dir', type=click.Path(exists=True))
