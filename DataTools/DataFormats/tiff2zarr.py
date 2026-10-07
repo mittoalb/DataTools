@@ -229,18 +229,48 @@ def _make_compressor(compression, zarr_format):
     return Blosc(cname=compression, clevel=1, shuffle=2)
 
 
-def _create_array(group, name, shape, chunks, dtype, compressor):
-    """Create an array under group in whichever format the group was opened as."""
+def _create_array(group, name, shape, chunks, dtype, compressor, shards=None):
+    """Create an array under group in whichever format the group was opened as.
+
+    shards (zarr v3 only): shard shape in voxels; must be a multiple of chunks.
+    Ignored (with no error) when writing v2 output or when shards is None.
+    """
     if ZARR_MAJOR >= 3:
-        # zarr 3: `compressors=` (plural) replaces deprecated `compressor=` and
-        # expects an iterable (works for both v2 and v3 output groups).
-        return group.create_array(
+        kwargs = dict(
             name=name, shape=shape, chunks=chunks, dtype=dtype,
             compressors=[compressor],
         )
+        if shards is not None:
+            kwargs["shards"] = shards
+        return group.create_array(**kwargs)
     return group.create_dataset(
         name=name, shape=shape, chunks=chunks, dtype=dtype, compressor=compressor
     )
+
+
+def _resolve_level_shards(user_shards, level_chunks, level_shape):
+    """Compute a usable shard shape for one pyramid level, or None.
+
+    - Axis 0 (Z) is NOT clamped to level_shape[0]: 'w' mode creates the array
+      with only the first chunk's Z size, then 'a' mode grows it via resize.
+      The shard Z dim must survive that growth, so we trust the user's choice.
+    - Axes 1,2 (Y/X) ARE clamped to level_shape (they're fixed per level).
+    - Each dim snapped down to a multiple of its chunk (zarr v3 requirement).
+    - If every dim collapses to its chunk size, sharding is pointless: None.
+    """
+    if user_shards is None:
+        return None
+    out = []
+    for axis, (s, c, ext) in enumerate(zip(user_shards, level_chunks, level_shape)):
+        if axis > 0:
+            s = min(s, ext)
+        s = (s // c) * c
+        if s <= 0:
+            return None
+        out.append(s)
+    if all(s == c for s, c in zip(out, level_chunks)):
+        return None
+    return tuple(out)
 
 
 def _store_format_version(root_group, zarr_format):
@@ -253,7 +283,7 @@ def _store_format_version(root_group, zarr_format):
 
 def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
               original_dtype=np.uint8, target_levels=None, real_shape=None,
-              zarr_format=2):
+              zarr_format=2, shards=None):
     """Append (or create) a multiscale pyramid in a Zarr store.
 
     Parameters
@@ -271,9 +301,15 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
         to ceil(real_shape / 2**L) before writing.
     zarr_format : {2, 3}
         Which on-disk format to write. v2 works on zarr>=2; v3 requires zarr>=3.
+    shards : (Z, Y, X) or None
+        Shard shape in voxels for Zarr v3 (packs many chunks into one file).
+        Must be a multiple of chunks; ignored on v2. Automatically clamped
+        and chunk-snapped per pyramid level by _resolve_level_shards.
     """
     if target_levels is None or real_shape is None:
         raise ValueError("save_zarr now requires target_levels and real_shape")
+    if shards is not None and zarr_format != 3:
+        raise ValueError("shards require --zarr-format 3; v2 has no sharding")
 
     compressor = _make_compressor(compression, zarr_format)
 
@@ -283,6 +319,8 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
         root_group = _open_group(output_path, mode='w', zarr_format=zarr_format)
         _store_format_version(root_group, zarr_format)
         root_group.attrs["target_levels"] = int(target_levels)
+        if shards is not None:
+            root_group.attrs["shards"] = list(shards)
     else:
         root_group = _open_group(output_path, mode='a', zarr_format=zarr_format)
         # Fail loudly if the caller's view of target_levels disagrees with the
@@ -309,8 +347,10 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
             # Pre-allocate with just this (first) chunk's real level shape;
             # subsequent 'a' calls will resize Z as more chunks arrive.
             level_chunks = tuple(min(c, s) for c, s in zip(chunks, data.shape))
+            level_shards = _resolve_level_shards(shards, level_chunks, data.shape)
             z = _create_array(
-                root_group, dataset_name, data.shape, level_chunks, data.dtype, compressor
+                root_group, dataset_name, data.shape, level_chunks, data.dtype,
+                compressor, shards=level_shards,
             )
             z[:] = data
 
@@ -373,9 +413,10 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
 @click.option('--max_val', type=float, default=None, help='Manually specify the maximum value for scaling. If provided, automatic calculation will be skipped.')
 @click.option('--levels', type=click.IntRange(min=0), default=0, help='Number of pyramid levels. 0 (default) = pick automatically from the first chunk + image dims.')
 @click.option('--zarr-format', 'zarr_format', type=click.Choice(['2', '3']), default='2', show_default=True, help='Zarr on-disk format to write. v3 requires zarr>=3.')
+@click.option('--shard', 'shard', type=(int, int, int), default=None, help='Zarr v3 shard shape (Z Y X) in voxels. Packs many chunks into one file; each dim must be a multiple of --chunks. Requires --zarr-format 3.')
 def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_size, verbose,
         min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, levels,
-        zarr_format):
+        zarr_format, shard):
     """
     Convert a folder of TIFF images into a multiscale OME-Zarr store.
     """
@@ -385,7 +426,18 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
         raise click.BadParameter(
             f"--zarr-format 3 requires zarr>=3; installed is {zarr.__version__}"
         )
+    if shard is not None:
+        if zarr_format != 3:
+            raise click.BadParameter("--shard requires --zarr-format 3; v2 has no sharding")
+        for i, (s, c) in enumerate(zip(shard, chunks)):
+            if s % c != 0:
+                raise click.BadParameter(
+                    f"--shard dim {i} ({s}) must be a multiple of --chunks dim {i} ({c})"
+                )
     info(f"=== Writing Zarr v{zarr_format} (library zarr=={zarr.__version__}) ===")
+    if shard is not None:
+        info(f"Sharding ON: shard shape = {shard} voxels "
+             f"({tuple(s // c for s, c in zip(shard, chunks))} chunks per shard)")
 
     dtype_map = {
         'int8': np.int8, 'int16': np.int16, 'int32': np.int32,
@@ -470,6 +522,7 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
                 target_levels=target_levels,
                 real_shape=real_shape,
                 zarr_format=zarr_format,
+                shards=shard,
             )
             mode = 'a'
             total_chunks_processed += 1
