@@ -198,8 +198,11 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
             ],
         })
 
-    root.attrs["multiscales"] = [{
-        "version": "0.4",
+    # NGFF spec version is pinned to the zarr format (Neuroglancer's v3 reader
+    # rejects root-level multiscales as invalid; v3 wants the "ome" key).
+    ngff_version = "0.5" if zarr_format == 3 else "0.4"
+    multiscales = [{
+        "version": ngff_version,
         "name": "bmp_stack",
         "axes": [
             {"name": "z", "type": "space", "unit": "micrometer"},
@@ -213,6 +216,10 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size,
             "mode": downsample_mode,
         },
     }]
+    if zarr_format == 3:
+        root.attrs["ome"] = {"version": ngff_version, "multiscales": multiscales}
+    else:
+        root.attrs["multiscales"] = multiscales
     root.attrs["pixel_size"] = pixel_size
     print(f"Zarr v{zarr_format} store saved at: {output_path}")
 

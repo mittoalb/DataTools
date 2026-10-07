@@ -380,8 +380,13 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
             z[cur[0]:] = data
 
     if mode == 'w':
-        root_group.attrs["multiscales"] = [{
-            "version": "0.4",
+        # OME-NGFF spec version is pinned to the Zarr format:
+        #   v2 store -> NGFF 0.4 (multiscales at root attributes)
+        #   v3 store -> NGFF 0.5 (multiscales nested under "ome" key)
+        # Neuroglancer's v3 reader rejects root-level multiscales as invalid.
+        ngff_version = "0.5" if zarr_format == 3 else "0.4"
+        multiscales = [{
+            "version": ngff_version,
             "name": os.path.basename(output_path.rstrip("/")) or "image",
             "axes": [
                 {"name": "z", "type": "space", "unit": "micrometer"},
@@ -395,6 +400,11 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
                 "kwargs": {"factors": [2, 2, 2]},
             },
         }]
+        if zarr_format == 3:
+            # NGFF 0.5 puts all OME metadata under this single key.
+            root_group.attrs["ome"] = {"version": ngff_version, "multiscales": multiscales}
+        else:
+            root_group.attrs["multiscales"] = multiscales
 
 @click.command()
 @click.argument('input_dir', type=click.Path(exists=True))
