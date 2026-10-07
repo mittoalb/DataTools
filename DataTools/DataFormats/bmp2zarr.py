@@ -30,10 +30,13 @@ def _open_group(output_path, mode, zarr_format):
 
 
 def _make_compressor(compression, zarr_format):
+    # shuffle='shuffle' (byte-shuffle, numcodecs code 1) matches the
+    # pre-modification writer that Neuroglancer handled correctly.
+    # bitshuffle was observed to break Neuroglancer decoding on v3 stores.
     if zarr_format == 3:
         from zarr.codecs import BloscCodec
-        return BloscCodec(cname=compression, clevel=5, shuffle='bitshuffle')
-    return Blosc(cname=compression, clevel=5, shuffle=2)
+        return BloscCodec(cname=compression, clevel=5, shuffle='shuffle')
+    return Blosc(cname=compression, clevel=5, shuffle=1)
 
 
 def _create_array(group, name, shape, chunks, dtype, compressor):

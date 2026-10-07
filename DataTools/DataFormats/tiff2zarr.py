@@ -222,11 +222,17 @@ def _make_compressor(compression, zarr_format):
 
     v2 uses numcodecs.Blosc (works on both zarr 2 and 3 libraries writing v2
     stores). v3 requires a zarr-native BytesBytesCodec from zarr.codecs.
+
+    shuffle='shuffle' (byte-shuffle) matches the pre-modification writer and
+    is what Neuroglancer's Blosc decoder currently handles reliably on v3
+    stores. bitshuffle was previously here but caused Neuroglancer to fail
+    to decode chunks (surfaced in the UI as "no zarr metadata found").
     """
     if zarr_format == 3:
         from zarr.codecs import BloscCodec  # local import: only exists on zarr>=3
-        return BloscCodec(cname=compression, clevel=1, shuffle='bitshuffle')
-    return Blosc(cname=compression, clevel=1, shuffle=2)
+        return BloscCodec(cname=compression, clevel=1, shuffle='shuffle')
+    # numcodecs.Blosc shuffle codes: 0=NOSHUFFLE, 1=SHUFFLE (byte), 2=BITSHUFFLE
+    return Blosc(cname=compression, clevel=1, shuffle=1)
 
 
 def _create_array(group, name, shape, chunks, dtype, compressor, shards=None):
