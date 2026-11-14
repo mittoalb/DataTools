@@ -38,7 +38,77 @@ def level_shape(real_shape, level):
     f = 2 ** level
     return tuple(max(1, (s + f - 1) // f) for s in real_shape)
 
-def calculate_percentile_limits(input_dir, low_percentile=0.5, high_percentile=99.5, sample_ratio=100):
+def _make_slice_stat_fn(spec, hist_bins=256):
+    """Return a function img -> float for per-slice intensity statistic.
+
+    spec: 'median', 'mean', 'mode' (histogram peak), or 'pNN' (percentile).
+    """
+    s = spec.lower()
+    if s == 'mean':
+        return lambda img: float(img.mean())
+    if s == 'median':
+        return lambda img: float(np.median(img))
+    if s == 'mode':
+        def _mode(img):
+            flat = img.ravel()
+            lo = float(flat.min()); hi = float(flat.max())
+            if hi <= lo:
+                return float(lo)
+            counts, edges = np.histogram(flat, bins=hist_bins, range=(lo, hi))
+            k = int(np.argmax(counts))
+            return float(0.5 * (edges[k] + edges[k + 1]))
+        return _mode
+    if s.startswith('p'):
+        try:
+            q = float(s[1:])
+        except ValueError:
+            raise ValueError(f"--normalize-slices {spec!r} not understood")
+        if not 0 < q < 100:
+            raise ValueError("Percentile must be in (0, 100)")
+        return lambda img: float(np.percentile(img, q))
+    raise ValueError(f"--normalize-slices {spec!r} not understood; use median, mean, mode, or pNN")
+
+
+def _combine_stats(values, how):
+    arr = np.asarray(values, dtype=np.float64)
+    if how == 'median':
+        return float(np.median(arr))
+    if how == 'mean':
+        return float(np.mean(arr))
+    raise ValueError(f"--norm-reference {how!r} not understood; use median or mean")
+
+
+def compute_slice_scales(input_dir, stat_spec, reference_how):
+    """One pass over the TIFF stack: return per-file multiplicative scale factors
+    that flatten slice-to-slice intensity drift.
+
+    Index order matches sorted() of the TIFF filenames (same ordering used by
+    load_tiff_chunked). Files whose stat is <= 0 get scale=1.0 and a warning.
+    """
+    stat_fn = _make_slice_stat_fn(stat_spec)
+    tiff_files = sorted(f for f in os.listdir(input_dir)
+                        if f.lower().endswith(('.tif', '.tiff')))
+    info(f"Normalization pre-pass: computing per-slice {stat_spec} for {len(tiff_files)} files...")
+    stats = np.empty(len(tiff_files), dtype=np.float64)
+    with tqdm(total=len(tiff_files), desc=f"Slice {stat_spec}", unit="files") as pbar:
+        for i, fn in enumerate(tiff_files):
+            stats[i] = stat_fn(tifffile.imread(os.path.join(input_dir, fn)))
+            pbar.update(1)
+    reference = _combine_stats(stats, reference_how)
+    if reference <= 0:
+        raise ValueError(f"Reference ({reference_how} of per-slice {stat_spec}) is {reference}; cannot normalize")
+    nonpos = int((stats <= 0).sum())
+    scales = np.where(stats > 0, reference / stats, 1.0)
+    spread_pct = (stats.max() - stats.min()) / reference * 100 if reference > 0 else 0.0
+    info(f"Per-slice {stat_spec}: min={stats.min():.4f} max={stats.max():.4f} "
+         f"spread={spread_pct:.1f}% of {reference_how} reference ({reference:.4f})")
+    info(f"Scale factors: min={scales.min():.4f} max={scales.max():.4f}")
+    if nonpos:
+        info(f"Warning: {nonpos} slices had {stat_spec} <= 0; left unscaled")
+    return scales
+
+
+def calculate_percentile_limits(input_dir, low_percentile=0.5, high_percentile=99.5, sample_ratio=100, scales=None):
    """
    Calculate percentile-based min/max to exclude outliers.
    
@@ -65,18 +135,22 @@ def calculate_percentile_limits(input_dir, low_percentile=0.5, high_percentile=9
    
    # Progress bar for percentile calculation
    with tqdm(total=total_files, desc="Calculating percentiles", unit="files") as pbar:
-       for filename in tiff_files:
+       for i, filename in enumerate(tiff_files):
            filepath = os.path.join(input_dir, filename)
            try:
                img = tifffile.imread(filepath)
                # Sample pixels to save memory - take every sample_ratio-th pixel
                sample = img.flatten()[::sample_ratio]
+               if scales is not None:
+                   # Reflect the per-slice intensity normalization in the sampled
+                   # values so data_min/data_max match what scale_to_dtype sees.
+                   sample = sample.astype(np.float32) * float(scales[i])
                all_values.extend(sample)
                file_count += 1
-               
+
            except Exception as e:
                info(f"Warning: Could not read {filename}: {e}")
-           
+
            pbar.update(1)
    
    if not all_values:
@@ -420,9 +494,18 @@ def save_zarr(volume, output_path, chunks, compression, pixel_size, mode='w',
 @click.option('--levels', type=click.IntRange(min=0), default=0, help='Number of pyramid levels. 0 (default) = pick automatically from the first chunk + image dims.')
 @click.option('--zarr-format', 'zarr_format', type=click.Choice(['2', '3']), default='2', show_default=True, help='Zarr on-disk format to write. v3 requires zarr>=3.')
 @click.option('--shard', 'shard', type=(int, int, int), default=None, help='Zarr v3 shard shape (Z Y X) in voxels. Packs many chunks into one file; each dim must be a multiple of --chunks. Requires --zarr-format 3.')
+@click.option('--normalize-slices', 'normalize_slices', type=str, default='none', show_default=True,
+              help="Per-slice intensity normalization applied BEFORE scale_to_dtype. "
+                   "'none' (default) disables. Otherwise: 'median', 'mean', 'mode' "
+                   "(histogram peak -- robust when the object fills the frame), or "
+                   "'pNN' percentile (e.g. p95). Each slice is scaled by "
+                   "reference / stat(slice) where reference is combined across all slices.")
+@click.option('--norm-reference', 'norm_reference', type=click.Choice(['median', 'mean']),
+              default='median', show_default=True,
+              help='How to combine per-slice statistics into the normalization reference.')
 def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_size, verbose,
         min_percentile, max_percentile, use_histogram, sample_ratio, min_val, max_val, levels,
-        zarr_format, shard):
+        zarr_format, shard, normalize_slices, norm_reference):
     """
     Convert a folder of TIFF images into a multiscale OME-Zarr store.
     """
@@ -452,6 +535,19 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
     }
     target_dtype = dtype_map[dtype]
 
+    if normalize_slices.lower() == 'none':
+        scales = None
+    else:
+        if use_histogram:
+            raise click.BadParameter(
+                "--normalize-slices is not supported with --use_histogram; "
+                "use the percentile-based limits path instead."
+            )
+        try:
+            scales = compute_slice_scales(input_dir, normalize_slices, norm_reference)
+        except ValueError as e:
+            raise click.BadParameter(str(e))
+
     if min_val is not None and max_val is not None:
         if min_val >= max_val:
             raise ValueError(f"min_val ({min_val}) must be less than max_val ({max_val})")
@@ -464,7 +560,7 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
             data_min, data_max = calculate_histogram_based_limits(input_dir)
         else:
             data_min, data_max = calculate_percentile_limits(
-                input_dir, min_percentile, max_percentile, sample_ratio
+                input_dir, min_percentile, max_percentile, sample_ratio, scales=scales
             )
 
     info(f"Using data range: [{data_min}, {data_max}] for {dtype} conversion")
@@ -506,11 +602,16 @@ def main(input_dir, output_path, dtype, chunks, compression, pixel_size, chunk_s
 
     with tqdm(total=estimated_chunks, desc="Processing chunks", unit="chunks") as chunk_pbar:
         while True:
+            chunk_start = start_index
             stack, start_index = load_tiff_chunked(input_dir, np.float32, chunk_size, start_index)
             if stack is None:
                 break
 
             info(f"Processing chunk {total_chunks_processed + 1}, shape: {stack.shape}")
+
+            if scales is not None:
+                chunk_scales = scales[chunk_start:chunk_start + stack.shape[0]].astype(np.float32)
+                stack = stack * chunk_scales[:, None, None]
 
             stack_scaled = scale_to_dtype(stack, data_min, data_max, target_dtype)
             real_shape = stack_scaled.shape  # (real_cz, real_y, real_x) BEFORE padding
