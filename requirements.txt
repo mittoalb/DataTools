@@ -7,3 +7,12 @@ xraylib
 tqdm
 tifffile
 scikit-image
+z5py
+sphinx
+sphinx_rtd_theme
+google-api-core
+google-auth
+google-cloud-core
+google-cloud-storage
+google-crc32c
+google-resumable-media

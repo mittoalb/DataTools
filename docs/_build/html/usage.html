@@ -1,0 +1,404 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Usage Guide &mdash; DataTools 0.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=d45e8c67"></script>
+      <script src="_static/doctools.js?v=9a2dae69"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Command-Line Tools" href="cli_tools.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            DataTools
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">User Guide:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Usage Guide</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-format-conversion">Data Format Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#tiff-to-zarr">TIFF to Zarr</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#bmp-to-zarr">BMP to Zarr</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#zarr-to-tiff">Zarr to TIFF</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#facility-data-conversion">Facility Data Conversion</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#esrf-to-aps">ESRF to APS</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#edf-to-aps">EDF to APS</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#physics-calculations">Physics Calculations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#x-ray-absorption">X-ray Absorption</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#data-processing-tools">Data Processing Tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#volume-creation">Volume Creation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#metadata-extraction">Metadata Extraction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#polar-artifact-removal">Polar Artifact Removal</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#working-with-zarr-arrays">Working with Zarr Arrays</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-operations">Basic Operations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#compression-options">Compression Options</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#cloud-storage-integration">Cloud Storage Integration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#globus-transfer">Globus Transfer</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#best-practices">Best Practices</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example-workflows">Example Workflows</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#complete-tomography-processing-pipeline">Complete Tomography Processing Pipeline</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#multi-facility-data-processing">Multi-facility Data Processing</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cli_tools.html">Command-Line Tools</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/dataformats.html">DataFormats Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/facilities.html">Facilities Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/physics.html">Physics Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/tools.html">Tools Module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/globus.html">Globus Module</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Development:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="contributing.html">Contributing to DataTools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changelog.html">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">DataTools</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Usage Guide</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/mittoalb/DataTools/blob/main/docs/usage.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="usage-guide">
+<h1>Usage Guide<a class="headerlink" href="#usage-guide" title="Link to this heading"></a></h1>
+<p>This guide provides examples of using DataTools for common data processing tasks.</p>
+<section id="data-format-conversion">
+<h2>Data Format Conversion<a class="headerlink" href="#data-format-conversion" title="Link to this heading"></a></h2>
+<section id="tiff-to-zarr">
+<h3>TIFF to Zarr<a class="headerlink" href="#tiff-to-zarr" title="Link to this heading"></a></h3>
+<p>Convert TIFF image stacks to Zarr format for efficient storage and processing:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.DataFormats</span><span class="w"> </span><span class="kn">import</span> <span class="n">tiff2zarr</span>
+
+<span class="c1"># Convert a single TIFF file</span>
+<span class="n">tiff2zarr</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;input.tiff&#39;</span><span class="p">,</span> <span class="s1">&#39;output.zarr&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Or use the command-line interface:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">tiff2zarr</span> <span class="nb">input</span><span class="o">.</span><span class="n">tiff</span> <span class="n">output</span><span class="o">.</span><span class="n">zarr</span>
+</pre></div>
+</div>
+</section>
+<section id="bmp-to-zarr">
+<h3>BMP to Zarr<a class="headerlink" href="#bmp-to-zarr" title="Link to this heading"></a></h3>
+<p>Convert BMP images to Zarr format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.DataFormats</span><span class="w"> </span><span class="kn">import</span> <span class="n">bmp2zarr</span>
+
+<span class="c1"># Convert BMP directory to Zarr</span>
+<span class="n">bmp2zarr</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;input_directory/&#39;</span><span class="p">,</span> <span class="s1">&#39;output.zarr&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">bmp2zarr</span> <span class="n">input_directory</span><span class="o">/</span> <span class="n">output</span><span class="o">.</span><span class="n">zarr</span>
+</pre></div>
+</div>
+</section>
+<section id="zarr-to-tiff">
+<h3>Zarr to TIFF<a class="headerlink" href="#zarr-to-tiff" title="Link to this heading"></a></h3>
+<p>Convert Zarr arrays back to TIFF format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.DataFormats</span><span class="w"> </span><span class="kn">import</span> <span class="n">zarr2tiff</span>
+
+<span class="c1"># Convert Zarr to TIFF stack</span>
+<span class="n">zarr2tiff</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;input.zarr&#39;</span><span class="p">,</span> <span class="s1">&#39;output.tiff&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">zarr2tiff</span> <span class="nb">input</span><span class="o">.</span><span class="n">zarr</span> <span class="n">output</span><span class="o">.</span><span class="n">tiff</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="facility-data-conversion">
+<h2>Facility Data Conversion<a class="headerlink" href="#facility-data-conversion" title="Link to this heading"></a></h2>
+<section id="esrf-to-aps">
+<h3>ESRF to APS<a class="headerlink" href="#esrf-to-aps" title="Link to this heading"></a></h3>
+<p>Convert data from ESRF format to APS format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Facilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">esrf2aps</span>
+
+<span class="c1"># Convert ESRF data</span>
+<span class="n">esrf2aps</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;esrf_data.edf&#39;</span><span class="p">,</span> <span class="s1">&#39;aps_output.h5&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">esrf2aps</span> <span class="n">esrf_data</span><span class="o">.</span><span class="n">edf</span> <span class="n">aps_output</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</section>
+<section id="edf-to-aps">
+<h3>EDF to APS<a class="headerlink" href="#edf-to-aps" title="Link to this heading"></a></h3>
+<p>Convert EDF files to APS format:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Facilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">edf2aps</span>
+
+<span class="c1"># Convert EDF to APS</span>
+<span class="n">edf2aps</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;input.edf&#39;</span><span class="p">,</span> <span class="s1">&#39;output.h5&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">edf2aps</span> <span class="nb">input</span><span class="o">.</span><span class="n">edf</span> <span class="n">output</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="physics-calculations">
+<h2>Physics Calculations<a class="headerlink" href="#physics-calculations" title="Link to this heading"></a></h2>
+<section id="x-ray-absorption">
+<h3>X-ray Absorption<a class="headerlink" href="#x-ray-absorption" title="Link to this heading"></a></h3>
+<p>Calculate X-ray absorption coefficients:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Physics</span><span class="w"> </span><span class="kn">import</span> <span class="n">abscalc</span>
+
+<span class="c1"># Calculate absorption for a material</span>
+<span class="n">mu</span> <span class="o">=</span> <span class="n">abscalc</span><span class="o">.</span><span class="n">calculate_absorption</span><span class="p">(</span>
+    <span class="n">element</span><span class="o">=</span><span class="s1">&#39;Fe&#39;</span><span class="p">,</span>
+    <span class="n">energy</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>  <span class="c1"># keV</span>
+    <span class="n">density</span><span class="o">=</span><span class="mf">7.87</span>  <span class="c1"># g/cm^3</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Interactive command-line calculator:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">abscalc</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="data-processing-tools">
+<h2>Data Processing Tools<a class="headerlink" href="#data-processing-tools" title="Link to this heading"></a></h2>
+<section id="volume-creation">
+<h3>Volume Creation<a class="headerlink" href="#volume-creation" title="Link to this heading"></a></h3>
+<p>Create volumetric datasets from image stacks:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_vol</span>
+
+<span class="c1"># Create volume from images</span>
+<span class="n">create_vol</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s1">&#39;image_stack/&#39;</span><span class="p">,</span> <span class="s1">&#39;output_volume.h5&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">create_vol</span> <span class="n">image_stack</span><span class="o">/</span> <span class="n">output_volume</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</section>
+<section id="metadata-extraction">
+<h3>Metadata Extraction<a class="headerlink" href="#metadata-extraction" title="Link to this heading"></a></h3>
+<p>Extract metadata from image files:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract_meta</span>
+
+<span class="c1"># Extract metadata</span>
+<span class="n">metadata</span> <span class="o">=</span> <span class="n">extract_meta</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="s1">&#39;image.tiff&#39;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">metadata</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">extract_meta</span> <span class="n">image</span><span class="o">.</span><span class="n">tiff</span>
+</pre></div>
+</div>
+</section>
+<section id="polar-artifact-removal">
+<h3>Polar Artifact Removal<a class="headerlink" href="#polar-artifact-removal" title="Link to this heading"></a></h3>
+<p>Remove polar artifacts from tomographic reconstructions:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">polar_removal</span>
+
+<span class="c1"># Remove polar artifacts</span>
+<span class="n">polar_removal</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="s1">&#39;input.h5&#39;</span><span class="p">,</span> <span class="s1">&#39;output.h5&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Command-line usage:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">polar</span> <span class="nb">input</span><span class="o">.</span><span class="n">h5</span> <span class="n">output</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="working-with-zarr-arrays">
+<h2>Working with Zarr Arrays<a class="headerlink" href="#working-with-zarr-arrays" title="Link to this heading"></a></h2>
+<p>Zarr arrays provide efficient chunked, compressed storage for large datasets.</p>
+<section id="basic-operations">
+<h3>Basic Operations<a class="headerlink" href="#basic-operations" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.DataFormats</span><span class="w"> </span><span class="kn">import</span> <span class="n">tiff2zarr</span>
+
+<span class="c1"># Convert TIFF to Zarr</span>
+<span class="n">tiff2zarr</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s1">&#39;data.tiff&#39;</span><span class="p">,</span> <span class="s1">&#39;data.zarr&#39;</span><span class="p">)</span>
+
+<span class="c1"># Open Zarr array</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s1">&#39;data.zarr&#39;</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">)</span>
+
+<span class="c1"># Access data</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+
+<span class="c1"># Read subset</span>
+<span class="n">subset</span> <span class="o">=</span> <span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="mi">10</span><span class="p">,</span> <span class="p">:,</span> <span class="p">:]</span>
+</pre></div>
+</div>
+</section>
+<section id="compression-options">
+<h3>Compression Options<a class="headerlink" href="#compression-options" title="Link to this heading"></a></h3>
+<p>Configure compression when creating Zarr arrays:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">zarr</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numcodecs</span><span class="w"> </span><span class="kn">import</span> <span class="n">Blosc</span>
+
+<span class="c1"># Create compressed Zarr array</span>
+<span class="n">compressor</span> <span class="o">=</span> <span class="n">Blosc</span><span class="p">(</span><span class="n">cname</span><span class="o">=</span><span class="s1">&#39;zstd&#39;</span><span class="p">,</span> <span class="n">clevel</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="n">Blosc</span><span class="o">.</span><span class="n">BITSHUFFLE</span><span class="p">)</span>
+<span class="n">z</span> <span class="o">=</span> <span class="n">zarr</span><span class="o">.</span><span class="n">open</span><span class="p">(</span>
+    <span class="s1">&#39;compressed.zarr&#39;</span><span class="p">,</span>
+    <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;w&#39;</span><span class="p">,</span>
+    <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="mi">1000</span><span class="p">),</span>
+    <span class="n">chunks</span><span class="o">=</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">),</span>
+    <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;float32&#39;</span><span class="p">,</span>
+    <span class="n">compressor</span><span class="o">=</span><span class="n">compressor</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="cloud-storage-integration">
+<h2>Cloud Storage Integration<a class="headerlink" href="#cloud-storage-integration" title="Link to this heading"></a></h2>
+<section id="globus-transfer">
+<h3>Globus Transfer<a class="headerlink" href="#globus-transfer" title="Link to this heading"></a></h3>
+<p>Use Globus for large data transfers:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">DataTools.Globus</span><span class="w"> </span><span class="kn">import</span> <span class="n">io</span>
+
+<span class="c1"># Configure Globus transfer</span>
+<span class="n">io</span><span class="o">.</span><span class="n">transfer</span><span class="p">(</span><span class="s1">&#39;source_endpoint&#39;</span><span class="p">,</span> <span class="s1">&#39;dest_endpoint&#39;</span><span class="p">,</span> <span class="s1">&#39;file.zarr&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="best-practices">
+<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>Choose appropriate chunk sizes</strong>: For 3D data, use chunks of ~1-10 MB for optimal performance</p></li>
+<li><p><strong>Use compression</strong>: Enable compression for Zarr arrays to reduce storage requirements</p></li>
+<li><p><strong>Parallel processing</strong>: Many DataTools functions support parallel processing for large datasets</p></li>
+<li><p><strong>Memory management</strong>: Use chunked reading/writing for datasets larger than available RAM</p></li>
+</ol>
+</section>
+<section id="example-workflows">
+<h2>Example Workflows<a class="headerlink" href="#example-workflows" title="Link to this heading"></a></h2>
+<section id="complete-tomography-processing-pipeline">
+<h3>Complete Tomography Processing Pipeline<a class="headerlink" href="#complete-tomography-processing-pipeline" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># 1. Convert raw TIFF data to Zarr</span>
+<span class="n">tiff2zarr</span> <span class="n">input_projections</span><span class="o">/</span> <span class="n">raw_data</span><span class="o">.</span><span class="n">zarr</span>
+
+<span class="c1"># 2. Remove polar artifacts</span>
+<span class="n">polar</span> <span class="n">raw_data</span><span class="o">.</span><span class="n">zarr</span> <span class="n">processed_data</span><span class="o">.</span><span class="n">zarr</span>
+
+<span class="c1"># 3. Create volume</span>
+<span class="n">create_vol</span> <span class="n">processed_data</span><span class="o">.</span><span class="n">zarr</span> <span class="n">final_volume</span><span class="o">.</span><span class="n">h5</span>
+
+<span class="c1"># 4. Extract metadata</span>
+<span class="n">extract_meta</span> <span class="n">final_volume</span><span class="o">.</span><span class="n">h5</span>
+</pre></div>
+</div>
+</section>
+<section id="multi-facility-data-processing">
+<h3>Multi-facility Data Processing<a class="headerlink" href="#multi-facility-data-processing" title="Link to this heading"></a></h3>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Convert ESRF data to APS format</span>
+<span class="n">esrf2aps</span> <span class="n">esrf_scan001</span><span class="o">.</span><span class="n">edf</span> <span class="n">aps_scan001</span><span class="o">.</span><span class="n">h5</span>
+
+<span class="c1"># Convert to Zarr for efficient processing</span>
+<span class="n">tiff2zarr</span> <span class="n">aps_scan001</span><span class="o">.</span><span class="n">h5</span> <span class="n">aps_scan001</span><span class="o">.</span><span class="n">zarr</span>
+
+<span class="c1"># Process with analysis tools</span>
+<span class="n">polar</span> <span class="n">aps_scan001</span><span class="o">.</span><span class="n">zarr</span> <span class="n">processed_scan001</span><span class="o">.</span><span class="n">zarr</span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cli_tools.html" class="btn btn-neutral float-right" title="Command-Line Tools" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Argonne National Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
